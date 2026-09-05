@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+  <title>Discord Token Manager</title>
+</head>
+<body>
+  <div class="app">
+
+    <!-- TOP (pinned: does not move on scroll) -->
+    <div class="app-top">
+      <!-- Header -->
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-icon" data-icon="verified_user"></div>
+          <div class="brand-text">
+            <h1>Discord Token Manager</h1>
+            <span id="header-sub" class="header-sub">Vault</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="select-toggle" class="icon-btn" title="Multi-select" data-icon="check"></button>
+          <button id="settings-btn" class="icon-btn" title="Settings" data-icon="settings"></button>
+        </div>
+      </header>
+
+      <!-- Search (pinned with the top area) -->
+      <div class="search-wrap">
+        <div class="search-icon" data-icon="search"></div>
+        <input id="search-input" type="text" placeholder="Search sessions or IDs..." />
+        <span class="search-kbd">Ctrl K</span>
+        <button id="search-clear" class="icon-btn small hidden" title="Clear" data-icon="close"></button>
+      </div>
+    </div>
+
+    <!-- SCROLL (only this middle region moves) -->
+    <main class="scroll">
+
+      <!-- ===== VAULT TAB ===== -->
+      <section id="panel-vault" class="tab-panel">
+        <!-- Active / live session: Spotify "Now Playing" style -->
+        <section class="now-playing" id="now-playing">
+          <div class="np-head">
+            <span class="np-eyebrow" data-icon="equalizer">Currently Active</span>
+            <span id="live-status" class="status-line">No active session</span>
+          </div>
+          <div id="live-token" class="np-card"></div>
+        </section>
+
+        <!-- Vault header: informative count + quick actions -->
+        <section class="vault">
+          <div class="vault-head">
+            <span class="vault-title">Vault</span>
+            <span id="vault-stats" class="vault-stats"></span>
+          </div>
+
+          <div class="quick-actions">
+            <button id="qa-add" class="chip" data-icon="add"><span>Add</span></button>
+            <button id="qa-verify" class="chip" data-icon="verified"><span>Verify all</span></button>
+            <button id="qa-backup" class="chip" data-icon="backup"><span>Backup</span></button>
+          </div>
+
+          <div id="multiselect-bar" class="ms-bar hidden">
+            <span id="select-count">0 selected</span>
+            <span class="spacer"></span>
+            <button id="ms-delete" class="btn danger small" data-icon="delete"><span>Delete</span></button>
+            <button id="ms-export" class="btn small" data-icon="ios_share"><span>Export</span></button>
+            <button id="ms-cancel" class="btn small">Cancel</button>
+          </div>
+
+          <div id="groups-container" class="groups"></div>
+
+          <div id="empty-state" class="empty-state hidden">
+            <div class="empty-art" data-icon="verified_user"></div>
+            <p class="empty-title">No saved sessions</p>
+            <p class="empty-sub">Save your first login to get started.</p>
+            <button id="empty-add" class="btn primary" data-icon="add"><span>Add session</span></button>
+          </div>
+        </section>
+      </section>
+
+      <!-- ===== IMPORT TAB ===== -->
+      <section id="panel-import" class="tab-panel hidden">
+        <div class="panel-head"><span class="grp-ic" data-icon="file_download"></span><span>Import</span></div>
+        <div class="grp">
+          <div class="svc col">
+            <div class="svc-label"><span>Restore from backup</span></div>
+            <div class="svc-d">Paste a previously exported JSON backup to restore sessions.</div>
+            <textarea id="import-json" class="import-json" placeholder='Paste JSON here, e.g. [{"token":"...", ...}]'></textarea>
+            <button id="import-run" class="btn primary" data-icon="check"><span>Restore</span></button>
+          </div>
+        </div>
+        <p class="panel-note">Duplicate tokens are detected and skipped automatically.</p>
+      </section>
+
+      <!-- ===== SETTINGS TAB ===== -->
+      <section id="panel-settings" class="tab-panel hidden">
+        <div class="panel-head"><span class="grp-ic" data-icon="settings"></span><span>Session Behavior</span></div>
+        <div class="grp">
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="swap_horiz"></span><span>Auto Switch<span class="svc-d">Apply session on tab focus</span></span></div><button id="sw-autoswitch" class="switch"><span class="knob"></span></button></div>
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="sync"></span><span>Sync Cookies<span class="svc-d">Keep cookies in sync across tabs</span></span></div><button id="sw-sync" class="switch"><span class="knob"></span></button></div>
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="restore"></span><span>Restore Storage<span class="svc-d">Restore session storage on load</span></span></div><button id="sw-restore" class="switch"><span class="knob"></span></button></div>
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="verified_user"></span><span>Verify Token<span class="svc-d">Check tokens on startup</span></span></div><button id="sw-verify" class="switch"><span class="knob"></span></button></div>
+        </div>
+
+        <div class="panel-head"><span class="grp-ic" data-icon="tune"></span><span>General</span></div>
+        <div class="grp">
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="density_small"></span><span>Compact mode<span class="svc-d">Denser vault rows</span></span></div><button id="btn-compact" class="btn small">Toggle</button></div>
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="verified"></span><span>Verify all tokens<span class="svc-d">Force re-check every session</span></span></div><button id="btn-verify-all" class="btn small">Verify</button></div>
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="backup"></span><span>Export backup<span class="svc-d">Download all sessions as JSON</span></span></div><button id="btn-export" class="btn small">Export</button></div>
+        </div>
+
+        <div class="panel-head"><span class="grp-ic" data-icon="devices"></span><span>NorthConnect Bridge</span></div>
+        <div class="grp">
+          <div class="svc"><div class="svc-label"><span class="svc-ic" data-icon="sync"></span><span>Sync to NorthConnect<span class="svc-d">Add new & detected sessions to the desktop app</span></span></div><button id="sw-northsync" class="switch"><span class="knob"></span></button></div>
+          <div class="svc col">
+            <div class="svc-label"><span class="svc-ic" data-icon="key"></span><span>Bridge key<span class="svc-d">Copy it from NorthConnect → Settings → Extension Bridge</span></span></div>
+            <input id="bridge-key" class="bridge-input" type="password" placeholder="Paste bridge key..." />
+            <div class="row-btns">
+              <button id="bridge-save" class="btn primary" data-icon="check"><span>Save key</span></button>
+              <button id="bridge-test" class="btn" data-icon="wifi_tethering"><span>Test</span></button>
+            </div>
+            <div id="bridge-state" class="bridge-state" data-state="off">Not connected</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== LOCK TAB ===== -->
+      <section id="panel-lock" class="tab-panel hidden">
+        <div class="panel-head"><span class="grp-ic" data-icon="lock"></span><span>Lock</span></div>
+        <div class="grp">
+          <div class="svc col">
+            <div class="svc-label"><span class="svc-ic" data-icon="shield"></span><span id="lock-status">Protection disabled</span></div>
+            <div class="svc-d">Require a PIN before the vault can be used.</div>
+            <div class="row-btns">
+              <button id="btn-lock" class="btn primary" data-icon="lock"><span id="lock-btn-label">Enable Lock</span></button>
+              <button id="btn-lock-clear" class="btn danger hidden" data-icon="delete"><span>Disable</span></button>
+            </div>
+          </div>
+        </div>
+        <p class="panel-note">PIN is stored locally in this browser only.</p>
+      </section>
+
+    </main>
+
+    <!-- Android-style bottom navigation (tab switching) -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button id="nav-vault" class="nav-item active" data-tab="vault" data-icon="verified_user"><span>Vault</span></button>
+      <button id="nav-import" class="nav-item" data-tab="import" data-icon="file_download"><span>Import</span></button>
+      <button id="nav-settings" class="nav-item" data-tab="settings" data-icon="settings"><span>Settings</span></button>
+      <button id="nav-lock" class="nav-item" data-tab="lock" data-icon="lock"><span>Lock</span></button>
+    </nav>
+
+    <div id="devmode-warning" class="devmode-warning hidden" data-icon="warning"><span>Developer mode enabled</span></div>
+  </div>
+
+  <!-- Add/Edit dialog -->
+  <div id="dialog-backdrop" class="overlay hidden">
+    <div class="dialog">
+      <h3 id="dialog-title">Add session</h3>
+      <label class="field">
+        <span>Token</span>
+        <textarea id="dlg-token" placeholder="Paste token..."></textarea>
+      </label>
+      <label class="field">
+        <span>Nickname (optional)</span>
+        <input id="dlg-nickname" type="text" placeholder="e.g. Main" />
+      </label>
+      <div class="field">
+        <span>Color</span>
+        <div id="dlg-color" class="color-row">
+          <button data-c="purple" class="swatch sp" title="Purple"></button>
+          <button data-c="green" class="swatch sg" title="Green"></button>
+          <button data-c="red" class="swatch sr" title="Red"></button>
+          <button data-c="blue" class="swatch sb" title="Blue"></button>
+          <button data-c="yellow" class="swatch sy" title="Yellow"></button>
+          <button data-c="gray" class="swatch sl" title="Gray"></button>
+        </div>
+      </div>
+      <div class="field">
+        <span>Group (optional)</span>
+        <input id="dlg-group" type="text" list="group-list" placeholder="e.g. Work, Bots" />
+        <datalist id="group-list"></datalist>
+      </div>
+      <label class="field toggle-row">
+        <input id="dlg-favorite" type="checkbox" />
+        <span>Favorite (pinned)</span>
+      </label>
+      <div class="field">
+        <span>Tags</span>
+        <div id="dlg-badges" class="badge-row">
+          <button data-b="favorite" class="badge-pick">⭐ Favorite</button>
+          <button data-b="work" class="badge-pick">Work</button>
+          <button data-b="testing" class="badge-pick">Testing</button>
+          <button data-b="bot" class="badge-pick">Bot</button>
+          <button data-b="main" class="badge-pick">Main</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>Notes</span>
+        <textarea id="dlg-notes" placeholder="Notes..."></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button id="dlg-cancel" class="btn">Cancel</button>
+        <button id="dlg-save" class="btn primary" data-icon="save"><span>Save</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login confirm dialog -->
+  <div id="login-backdrop" class="overlay hidden">
+    <div class="dialog small">
+      <h3>Switch session</h3>
+      <div id="login-preview" class="login-preview"></div>
+      <div class="login-arrow" data-icon="swap_horiz"></div>
+      <div class="dialog-actions">
+        <button id="login-cancel" class="btn">Cancel</button>
+        <button id="login-confirm" class="btn primary" data-icon="check"><span>Switch</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Details dialog -->
+  <div id="details-backdrop" class="overlay hidden">
+    <div class="dialog details">
+      <h3 id="details-title">Account details</h3>
+      <div id="details-body" class="details-body"></div>
+      <div class="dialog-actions">
+        <button id="details-copy" class="btn primary" data-icon="copy"><span>Copy token</span></button>
+        <button id="details-edit" class="btn" data-icon="edit"><span>Edit</span></button>
+        <button id="details-close" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <div id="ctx-menu" class="ctx-menu hidden"></div>
+
+  <script src="bridge.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

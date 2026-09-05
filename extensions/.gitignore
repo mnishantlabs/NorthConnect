@@ -1,0 +1,8 @@
+# Build artifacts (uploaded to GitHub Releases, not tracked in git)
+dist/
+*.zip
+
+# Node / temp artifacts
+node_modules/
+.DS_Store
+Thumbs.db

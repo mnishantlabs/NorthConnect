@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>discord token manager — local session vault for chrome &amp; firefox</title>
+<meta name="description" content="A quiet, local-first browser extension to save, manage, verify and switch Discord session tokens. Available for Chrome and Firefox.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg:#0d1117; --bg-card:#161b22; --bg-hover:#1c2128;
+        --border:#30363d; --border-light:#484f58;
+        --text:#e6edf3; --text-muted:#8b949e; --text-dim:#6e7681;
+        --accent:#3B82F6; --accent-glow:rgba(59,130,246,.3);
+        --accent-2:#58a6ff; --accent-2-glow:rgba(88,166,255,.2);
+        --success:#3fb950; --warning:#d29922;
+        --ff-body:'Manrope',system-ui,sans-serif; --ff-mono:'Geist Mono','SF Mono',monospace;
+        --fs-hero:clamp(2.2rem,6vw,3.8rem); --fs-h1:clamp(1.8rem,4vw,2.6rem);
+        --fs-h2:clamp(1.4rem,3vw,1.9rem); --fs-h3:clamp(1.1rem,2vw,1.35rem);
+        --fs-body:1rem; --fs-small:.875rem; --fs-xs:.75rem; --fs-mono:.8rem;
+        --fw-light:300; --fw-regular:400; --fw-medium:500; --fw-semi:600; --fw-bold:700; --fw-extra:800;
+        --space-xs:.25rem; --space-sm:.5rem; --space-md:1rem; --space-lg:1.5rem;
+        --space-xl:2.5rem; --space-2xl:4rem; --space-3xl:6rem;
+        --radius-sm:6px; --radius-md:10px; --radius-full:9999px;
+        --ease:cubic-bezier(.4,0,.2,1); --duration:.3s;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+    body{font-family:var(--ff-body);font-size:var(--fs-body);color:var(--text);background:var(--bg);min-height:100vh;overflow-x:hidden;line-height:1.6}
+    a{color:inherit;text-decoration:none}
+
+    .glow{position:fixed;border-radius:50%;filter:blur(140px);opacity:.25;pointer-events:none;z-index:0}
+    .glow-1{width:600px;height:600px;background:var(--accent);top:-200px;right:-150px;opacity:.15}
+    .glow-2{width:500px;height:500px;background:var(--accent-2);bottom:-150px;left:-150px;opacity:.1}
+    .landing{position:relative;min-height:100vh}
+
+    .nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:var(--space-lg) var(--space-xl);max-width:1200px;margin:0 auto}
+    .logo{display:flex;align-items:center;gap:var(--space-sm)}
+    .logo-icon{font-size:1.4rem;color:var(--accent)}
+    .logo-text{font-family:var(--ff-mono);font-size:var(--fs-small);font-weight:var(--fw-medium);letter-spacing:-.02em;text-transform:lowercase}
+    .nav-links{display:flex;gap:var(--space-xs)}
+    .nav-link{font-family:var(--ff-mono);font-size:var(--fs-xs);font-weight:var(--fw-medium);color:var(--text-muted);text-transform:lowercase;padding:.4rem .75rem;border-radius:var(--radius-sm);border:1px solid transparent;transition:all var(--duration) var(--ease)}
+    .nav-link:hover,.nav-link.active{color:var(--text);background:var(--bg-hover);border-color:var(--border)}
+
+    .btn{display:inline-flex;align-items:center;gap:var(--space-sm);padding:.7rem 1.5rem;border-radius:var(--radius-sm);font-family:var(--ff-body);font-size:var(--fs-small);font-weight:var(--fw-semi);letter-spacing:-.01em;transition:all var(--duration) var(--ease)}
+    .btn-primary{background:var(--accent);color:#fff;border:1px solid var(--accent)}
+    .btn-primary:hover{background:#2563eb;border-color:#2563eb;transform:translateY(-1px);box-shadow:0 4px 20px var(--accent-glow)}
+    .btn-ghost{border:1px solid var(--border);color:var(--text-muted);background:var(--bg-card)}
+    .btn-ghost:hover{border-color:var(--border-light);color:var(--text);background:var(--bg-hover)}
+    .btn-arrow{transition:transform var(--duration) var(--ease)}
+    .btn:hover .btn-arrow{transform:translateX(3px)}
+
+    .hero{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:var(--space-3xl) var(--space-xl) var(--space-2xl);text-align:center}
+    .badge{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .8rem .3rem .6rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:var(--space-xl)}
+    .badge-dot{width:7px;height:7px;border-radius:50%;background:var(--success);animation:pulse 2s infinite}
+    .badge-text{font-family:var(--ff-mono);font-size:11px;font-weight:var(--fw-medium);color:var(--text-muted);text-transform:lowercase;letter-spacing:.02em}
+    .hero-title{font-size:var(--fs-hero);font-weight:var(--fw-extra);line-height:1.05;letter-spacing:-.04em;margin-bottom:var(--space-lg)}
+    .hero-highlight{background:linear-gradient(135deg,var(--accent),var(--success));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero-subtitle{font-size:var(--fs-body);color:var(--text-muted);max-width:560px;margin:0 auto var(--space-xl);line-height:1.7}
+    .hero-actions{display:flex;align-items:center;justify-content:center;gap:var(--space-md);margin-bottom:var(--space-3xl);flex-wrap:wrap}
+
+    .section{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:var(--space-2xl) var(--space-xl)}
+    .section-title{font-size:var(--fs-h2);font-weight:var(--fw-bold);letter-spacing:-.03em;text-align:center;margin-bottom:var(--space-2xl)}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-lg)}
+    .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-xl);transition:border-color var(--duration) var(--ease),transform var(--duration) var(--ease)}
+    .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+    .card-title{font-size:var(--fs-h3);font-weight:var(--fw-semi);letter-spacing:-.02em;margin-bottom:var(--space-sm)}
+    .card-desc{font-size:var(--fs-small);color:var(--text-muted);line-height:1.6}
+    .card-monotag{font-family:var(--ff-mono);font-size:var(--fs-mono);font-weight:var(--fw-bold);color:var(--accent);margin-bottom:var(--space-md);display:inline-block;padding:.15rem .5rem;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:var(--radius-sm)}
+
+    table{width:100%;border-collapse:collapse;font-size:var(--fs-small);margin-top:var(--space-md)}
+    th,td{border:1px solid var(--border);padding:.6rem 1rem;text-align:left}
+    th{font-family:var(--ff-mono);font-size:var(--fs-xs);font-weight:var(--fw-medium);color:var(--text-muted);text-transform:lowercase}
+
+    .callout{position:relative;z-index:1;max-width:800px;margin:var(--space-2xl) auto;padding:var(--space-lg) var(--space-xl);background:rgba(210,153,34,.08);border:1px solid rgba(210,153,34,.25);border-radius:var(--radius-md);font-size:var(--fs-small);color:var(--warning);line-height:1.7}
+
+    .footer{position:relative;z-index:1;padding:var(--space-xl);border-top:1px solid var(--border);margin-top:var(--space-2xl)}
+    .footer-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:var(--space-sm);flex-wrap:wrap}
+    .footer-text{font-size:var(--fs-xs);color:var(--text-dim)}
+    .footer-mono{font-family:var(--ff-mono);font-size:var(--fs-xs);color:var(--text-dim)}
+
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    @media(max-width:768px){.nav{padding:var(--space-md);flex-direction:column;gap:var(--space-sm)}.hero{padding:var(--space-2xl) var(--space-md) var(--space-xl)}.hero-actions{flex-direction:column}.grid{grid-template-columns:1fr}.footer-inner{flex-direction:column;text-align:center}}
+    .icon-sm{width:16px;height:16px;flex-shrink:0;display:inline-block;vertical-align:middle}
+    .icon-xs{width:14px;height:14px;flex-shrink:0;display:inline-block;vertical-align:middle}
+    .icon-lg{width:48px;height:48px;margin-bottom:var(--space-md)}
+</style>
+</head>
+<body>
+<div class="landing">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+
+    <nav class="nav">
+        <div class="logo">
+            <span class="logo-icon"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7.5" cy="7.5" r="4.5" fill="#3B82F6" stroke="#e6edf3" stroke-width="1.8"/><path d="M11 11l9 9M17 17l2-2M19 19l-1.5 1.5" stroke="#e6edf3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7.5" cy="7.5" r="1.5" fill="#e6edf3"/></svg></span>
+            <span class="logo-text">discord token manager</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link active">home</a>
+            <a href="download.html" class="nav-link">download</a>
+            <a href="setup.html" class="nav-link">setup</a>
+            <a href="faq.html" class="nav-link">faq</a>
+            <a href="changelog.html" class="nav-link">changelog</a>
+        </div>
+    </nav>
+
+    <main class="hero">
+        <div class="badge">
+            <span class="badge-dot"></span>
+            <span class="badge-text">free &middot; open source &middot; local-first</span>
+        </div>
+
+        <h1 class="hero-title">
+            manage your discord<br>
+            <span class="hero-highlight">sessions</span><br>
+            quietly &amp; locally
+        </h1>
+
+        <p class="hero-subtitle">
+            save, organize, verify and switch between discord session tokens<br>
+            right from your toolbar. everything stays in your browser — nothing is uploaded anywhere.
+        </p>
+
+        <div class="hero-actions">
+            <a href="download.html" class="btn btn-primary">
+                download for chrome <svg class="icon-xs btn-arrow" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><polyline points="12 5 19 12 12 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a href="setup.html" class="btn btn-ghost">how to install</a>
+        </div>
+    </main>
+
+    <section class="section">
+        <h2 class="section-title">why it's useful</h2>
+        <div class="grid">
+            <div class="card">
+                <div class="card-monotag">vault</div>
+                <h3 class="card-title">personal vault</h3>
+                <p class="card-desc">group, favorite, tag and search your saved sessions. add manually or from the active session.</p>
+            </div>
+            <div class="card">
+                <div class="card-monotag">switch</div>
+                <h3 class="card-title">one-click switch</h3>
+                <p class="card-desc">apply a saved session to a discord.com tab and reload — fast account rotation.</p>
+            </div>
+            <div class="card">
+                <div class="card-monotag">check</div>
+                <h3 class="card-title">verify tokens</h3>
+                <p class="card-desc">check individual or all saved tokens right from the popup.</p>
+            </div>
+            <div class="card">
+                <div class="card-monotag">copy</div>
+                <h3 class="card-title">copy &amp; export</h3>
+                <p class="card-desc">copy a token in one click, or export a json backup of everything.</p>
+            </div>
+            <div class="card">
+                <div class="card-monotag">info</div>
+                <h3 class="card-title">account details</h3>
+                <p class="card-desc">see user id, status, joined date, badges and notes for each session.</p>
+            </div>
+            <div class="card">
+                <div class="card-monotag">local</div>
+                <h3 class="card-title">100% local</h3>
+                <p class="card-desc">data lives in browser storage only. no accounts, no telemetry, no servers.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2 class="section-title">browser support</h2>
+        <div class="steps" style="grid-template-columns:repeat(auto-fit,minmax(400px,1fr))">
+            <div class="step">
+                <div class="step-number">mv3</div>
+                <h3 class="step-title">chrome &amp; chromium</h3>
+                <p class="step-desc">chrome, edge, brave, opera, arc — all chromium-based browsers load the mv3 chrome package the same way.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">mv2</div>
+                <h3 class="step-title">firefox</h3>
+                <p class="step-desc">firefox loads it as a temporary add-on (stays active until you close firefox). the firefox zip package is ready to go.</p>
+            </div>
+        </div>
+        <div class="callout">
+            <strong>heads up:</strong> this extension manages session tokens, which may violate discord's terms of service. use it for your own personal, low-volume use, at your own risk. it is not affiliated with discord.
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-inner">
+            <span class="footer-text">made with &#9829; &middot; mit license</span>
+            <div class="footer-links" style="display:flex;gap:var(--space-sm)">
+                <a href="https://github.com/mnishantlabs/Discord-Token-Manager-Extenstion" target="_blank" rel="noopener" style="font-family:var(--ff-mono);font-size:var(--fs-xs);color:var(--text-dim);text-transform:lowercase">github</a>
+                <span class="footer-mono">v1.4.1</span>
+            </div>
+        </div>
+    </footer>
+</div>
+</body>
+</html>

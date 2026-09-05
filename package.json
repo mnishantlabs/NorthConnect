@@ -1,0 +1,52 @@
+{
+  "name": "northconnect",
+  "productName": "NorthConnect",
+  "version": "1.0.0",
+  "description": "NorthConnect - Discord token & voice channel manager",
+  "author": "NorthCodeBase",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build": "node scripts/build.js",
+    "build:win": "npm run build && electron-builder --win",
+    "dist": "npm run build && electron-builder --win",
+    "package": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@distube/ytdl-core": "^4.16.12",
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/manrope": "^5.2.8",
+    "@stablelib/xchacha20poly1305": "^2.0.1",
+    "electron-store": "^11.0.2",
+    "ffmpeg-static": "^5.3.0",
+    "libsodium-wrappers": "^0.8.4",
+    "lucide-react": "^0.395.0",
+    "opusscript": "^0.1.1",
+    "play-dl": "^1.9.7",
+    "prism-media": "^1.3.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tweetnacl": "^1.0.3",
+    "ws": "^8.17.0",
+    "yt-dlp-wrap": "^2.3.12",
+    "yt-search": "^2.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.5.10",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^30.0.1",
+    "electron-builder": "^24.13.3",
+    "esbuild": "^0.21.4",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  },
+  "allowScripts": {
+    "electron": true,
+    "esbuild": true
+  }
+}

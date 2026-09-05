@@ -1,0 +1,37 @@
+appId: com.northcodebase.northconnect
+productName: NorthConnect
+
+directories:
+  output: dist-release
+
+# Files to include in the packaged app
+files:
+  - dist/**/*
+  - package.json
+
+# Windows target configuration
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: resources/icon.ico
+
+# NSIS installer configuration
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: NorthConnect
+  perMachine: false
+  allowElevation: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}

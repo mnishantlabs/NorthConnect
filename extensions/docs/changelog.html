@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>changelog — discord token manager</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root{--bg:#0d1117;--bg-card:#161b22;--bg-hover:#1c2128;--border:#30363d;--border-light:#484f58;--text:#e6edf3;--text-muted:#8b949e;--text-dim:#6e7681;--accent:#3B82F6;--accent-glow:rgba(59,130,246,.3);--accent-2:#58a6ff;--success:#3fb950;--warning:#d29922;--ff-body:'Manrope',system-ui,sans-serif;--ff-mono:'Geist Mono','SF Mono',monospace;--fs-hero:clamp(2.2rem,6vw,3.8rem);--fs-h2:clamp(1.4rem,3vw,1.9rem);--fs-h3:clamp(1.1rem,2vw,1.35rem);--fs-body:1rem;--fs-small:.875rem;--fs-xs:.75rem;--fs-mono:.8rem;--fw-medium:500;--fw-semi:600;--fw-bold:700;--fw-extra:800;--space-sm:.5rem;--space-md:1rem;--space-lg:1.5rem;--space-xl:2.5rem;--space-2xl:4rem;--space-3xl:6rem;--radius-sm:6px;--radius-md:10px;--ease:cubic-bezier(.4,0,.2,1);--duration:.3s}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+    body{font-family:var(--ff-body);font-size:var(--fs-body);color:var(--text);background:var(--bg);min-height:100vh;overflow-x:hidden;line-height:1.6}
+    a{color:inherit;text-decoration:none}
+    .glow{position:fixed;border-radius:50%;filter:blur(140px);opacity:.25;pointer-events:none;z-index:0}
+    .glow-1{width:600px;height:600px;background:var(--accent);top:-200px;right:-150px;opacity:.15}
+    .glow-2{width:500px;height:500px;background:var(--accent-2);bottom:-150px;left:-150px;opacity:.1}
+    .landing{position:relative;min-height:100vh}
+    .nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:var(--space-lg) var(--space-xl);max-width:1200px;margin:0 auto}
+    .logo{display:flex;align-items:center;gap:var(--space-sm)}
+    .logo-icon{font-size:1.4rem;color:var(--accent)}
+    .logo-text{font-family:var(--ff-mono);font-size:var(--fs-small);font-weight:var(--fw-medium);letter-spacing:-.02em;text-transform:lowercase}
+    .nav-links{display:flex;gap:var(--space-xs)}
+    .nav-link{font-family:var(--ff-mono);font-size:var(--fs-xs);font-weight:var(--fw-medium);color:var(--text-muted);text-transform:lowercase;padding:.4rem .75rem;border-radius:var(--radius-sm);border:1px solid transparent;transition:all var(--duration) var(--ease)}
+    .nav-link:hover,.nav-link.active{color:var(--text);background:var(--bg-hover);border-color:var(--border)}
+    .hero{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:var(--space-3xl) var(--space-xl) var(--space-2xl);text-align:center}
+    .badge{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .8rem .3rem .6rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:var(--space-xl)}
+    .badge-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+    .badge-text{font-family:var(--ff-mono);font-size:11px;font-weight:var(--fw-medium);color:var(--text-muted);text-transform:lowercase;letter-spacing:.02em}
+    .hero-title{font-size:var(--fs-hero);font-weight:var(--fw-extra);line-height:1.05;letter-spacing:-.04em;margin-bottom:var(--space-lg)}
+    .hero-subtitle{font-size:var(--fs-body);color:var(--text-muted);max-width:560px;margin:0 auto var(--space-xl);line-height:1.7}
+    .section{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:var(--space-2xl) var(--space-xl)}
+    .timeline{display:flex;flex-direction:column;gap:var(--space-lg)}
+    .release{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-xl);transition:border-color var(--duration) var(--ease)}
+    .release:hover{border-color:var(--accent)}
+    .release-header{display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-md);flex-wrap:wrap}
+    .release-version{font-family:var(--ff-mono);font-size:var(--fs-h3);font-weight:var(--fw-bold);color:var(--accent)}
+    .release-tag{font-family:var(--ff-mono);font-size:var(--fs-mono);font-weight:var(--fw-medium);color:var(--text-muted);padding:.15rem .5rem;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:var(--radius-sm);text-transform:lowercase}
+    .release-date{font-family:var(--ff-mono);font-size:var(--fs-xs);color:var(--text-dim);margin-left:auto}
+    .release-changes{list-style:none;display:flex;flex-direction:column;gap:var(--space-sm)}
+    .release-changes li{font-size:var(--fs-small);color:var(--text-muted);line-height:1.6;padding-left:1.2rem;position:relative}
+    .release-changes li::before{content:'';position:absolute;left:0;top:.55rem;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+    .footer{position:relative;z-index:1;padding:var(--space-xl);border-top:1px solid var(--border);margin-top:var(--space-2xl)}
+    .footer-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:var(--space-sm);flex-wrap:wrap}
+    .footer-text{font-size:var(--fs-xs);color:var(--text-dim)}
+    .footer-mono{font-family:var(--ff-mono);font-size:var(--fs-xs);color:var(--text-dim)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    @media(max-width:768px){.nav{padding:var(--space-md);flex-direction:column;gap:var(--space-sm)}.hero{padding:var(--space-2xl) var(--space-md) var(--space-xl)}.release-header{flex-direction:column;align-items:flex-start}.release-date{margin-left:0}.footer-inner{flex-direction:column;text-align:center}}
+    .icon-sm{width:16px;height:16px;flex-shrink:0;display:inline-block;vertical-align:middle}
+    .icon-xs{width:14px;height:14px;flex-shrink:0;display:inline-block;vertical-align:middle}
+    .icon-lg{width:48px;height:48px;margin-bottom:var(--space-md)}
+</style>
+</head>
+<body>
+<div class="landing">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+
+    <nav class="nav">
+        <div class="logo">
+            <span class="logo-icon"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7.5" cy="7.5" r="4.5" fill="#3B82F6" stroke="#e6edf3" stroke-width="1.8"/><path d="M11 11l9 9M17 17l2-2M19 19l-1.5 1.5" stroke="#e6edf3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7.5" cy="7.5" r="1.5" fill="#e6edf3"/></svg></span>
+            <span class="logo-text">discord token manager</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">home</a>
+            <a href="download.html" class="nav-link">download</a>
+            <a href="setup.html" class="nav-link">setup</a>
+            <a href="faq.html" class="nav-link">faq</a>
+            <a href="changelog.html" class="nav-link active">changelog</a>
+        </div>
+    </nav>
+
+    <main class="hero">
+        <div class="badge">
+            <span class="badge-dot"></span>
+            <span class="badge-text">version history</span>
+        </div>
+
+        <h1 class="hero-title">changelog</h1>
+
+        <p class="hero-subtitle">
+            every release, every fix, every feature.<br>
+            all in one place.
+        </p>
+    </main>
+
+    <section class="section">
+        <div class="timeline">
+            <div class="release">
+                <div class="release-header">
+                    <span class="release-version">v1.4.1</span>
+                    <span class="release-tag">latest</span>
+                    <span class="release-date">2026-09-03</span>
+                </div>
+                <ul class="release-changes">
+                    <li>polish: fresh, unified visual overhaul — new colors, font system, glow accents, border system, stat blocks, and mono tags across all pages</li>
+                    <li>fix: discord tab detection now works more reliably with multiple windows</li>
+                    <li>fix: improved token verification robustness for edge cases with expired or malformed tokens</li>
+                    <li>fix: better responsive layout on small mobile screens</li>
+                    <li>fix: edge cases with token switching when multiple discord tabs are open</li>
+                    <li>improved folder management and session organization</li>
+                    <li>improved error messages for token verification failures</li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <div class="release-header">
+                    <span class="release-version">v1.4.0</span>
+                    <span class="release-tag">major</span>
+                    <span class="release-date">2026-09-02</span>
+                </div>
+                <ul class="release-changes">
+                    <li>added full branding overhaul with custom favicon and unified visual language</li>
+                    <li>improved session management — folders, favorites, notes, and search all more reliable</li>
+                    <li>improved token verification to be more robust with edge cases</li>
+                    <li>improved badge and status handling</li>
+                    <li>polished overall ui, more consistent and closer to a polished, shipped feel</li>
+                    <li>fixed multiple bugs around session switching and tab detection</li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <div class="release-header">
+                    <span class="release-version">v1.3.1</span>
+                    <span class="release-tag">patch</span>
+                    <span class="release-date">2026-08-30</span>
+                </div>
+                <ul class="release-changes">
+                    <li>fixed chrome using service worker session storage instead of local storage</li>
+                    <li>improved overall stability</li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <div class="release-header">
+                    <span class="release-version">v1.3.0</span>
+                    <span class="release-tag">major</span>
+                    <span class="release-date">2026-08-29</span>
+                </div>
+                <ul class="release-changes">
+                    <li>added json export of all saved sessions</li>
+                    <li>added copy token button directly from session list</li>
+                    <li>added badge display</li>
+                    <li>added manual token input in header</li>
+                    <li>improved default name generation — uses friendly username + discriminator when available</li>
+                    <li>added age verification and notes fields</li>
+                    <li>added developer mode instructions for obtaining tokens</li>
+                    <li>fixed several bugs with session storage, tab detection, and token verification</li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <div class="release-header">
+                    <span class="release-version">v1.2.0</span>
+                    <span class="release-tag">major</span>
+                    <span class="release-date">2026-08-28</span>
+                </div>
+                <ul class="release-changes">
+                    <li>added bulk verify all sessions</li>
+                    <li>added session folders</li>
+                    <li>added status indicators</li>
+                    <li>added token validation on save</li>
+                    <li>added account details popup</li>
+                    <li>redesigned header and status display</li>
+                    <li>improved overall stability and reliability</li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <div class="release-header">
+                    <span class="release-version">v1.1.0</span>
+                    <span class="release-tag">minor</span>
+                    <span class="release-date">2026-08-27</span>
+                </div>
+                <ul class="release-changes">
+                    <li>switch sessions with one click</li>
+                    <li>verify all tokens in one click</li>
+                    <li>improved error handling for invalid or expired tokens</li>
+                    <li>cleaner status messages</li>
+                </ul>
+            </div>
+
+            <div class="release">
+                <div class="release-header">
+                    <span class="release-version">v1.0.0</span>
+                    <span class="release-tag">initial</span>
+                    <span class="release-date">2026-08-26</span>
+                </div>
+                <ul class="release-changes">
+                    <li>initial public release</li>
+                    <li>read current session from active discord tab</li>
+                    <li>save, name, delete and switch sessions</li>
+                    <li>persist everything in browser storage</li>
+                    <li>clean popup interface with status</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-inner">
+            <span class="footer-text">made with &#9829; &middot; mit license</span>
+            <div style="display:flex;gap:var(--space-sm);align-items:center">
+                <a href="https://github.com/mnishantlabs/Discord-Token-Manager-Extenstion" target="_blank" rel="noopener" style="font-family:var(--ff-mono);font-size:var(--fs-xs);color:var(--text-dim);text-transform:lowercase">github</a>
+                <span class="footer-mono">v1.4.1</span>
+            </div>
+        </div>
+    </footer>
+</div>
+</body>
+</html>

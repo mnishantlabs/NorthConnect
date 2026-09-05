@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NorthConnect — Multi-Account Discord Manager & Voice Streamer</title>
+<meta name="description" content="NorthConnect — The premier Windows desktop app for managing multiple Discord accounts, streaming YouTube & Spotify directly into voice channels, and soundboard effects.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root{--bg:#0b0f17;--bg-card:#121824;--bg-hover:#1a2332;--border:#1e293b;--border-light:#334155;--text:#f1f5f9;--text-muted:#94a3b8;--text-dim:#64748b;--accent:#3B82F6;--accent-glow:rgba(59,130,246,.35);--accent-2:#60a5fa;--success:#10b981;--warning:#f59e0b;--ff-body:'Manrope',system-ui,sans-serif;--ff-mono:'Geist Mono','SF Mono',monospace;--fs-hero:clamp(2.4rem,6vw,4rem);--fs-h1:clamp(1.8rem,4vw,2.6rem);--fs-h2:clamp(1.4rem,3vw,2rem);--fs-h3:clamp(1.1rem,2vw,1.35rem);--fs-body:1rem;--fs-small:.875rem;--fs-xs:.75rem;--fs-mono:.8rem;--fw-light:300;--fw-regular:400;--fw-medium:500;--fw-semi:600;--fw-bold:700;--fw-extra:800;--space-xs:.25rem;--space-sm:.5rem;--space-md:1rem;--space-lg:1.5rem;--space-xl:2.5rem;--space-2xl:4rem;--space-3xl:6rem;--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-full:9999px;--ease:cubic-bezier(.4,0,.2,1);--duration:.25s}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+    body{font-family:var(--ff-body);font-size:var(--fs-body);color:var(--text);background:var(--bg);min-height:100vh;overflow-x:hidden;line-height:1.6}
+    a{color:inherit;text-decoration:none}
+    .glow{position:fixed;border-radius:50%;filter:blur(140px);opacity:.25;pointer-events:none;z-index:0}
+    .glow-1{width:650px;height:650px;background:var(--accent);top:-200px;right:-150px;opacity:.2}
+    .glow-2{width:550px;height:550px;background:var(--accent-2);bottom:-150px;left:-150px;opacity:.15}
+    .landing{position:relative;min-height:100vh}
+    .nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:var(--space-lg) var(--space-xl);max-width:1200px;margin:0 auto}
+    .logo{display:flex;align-items:center;gap:var(--space-sm)}
+    .logo-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#2563eb);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}
+    .logo-text{font-family:var(--ff-body);font-size:1.15rem;font-weight:var(--fw-extra);letter-spacing:-.02em}
+    .nav-links{display:flex;gap:var(--space-xs)}
+    .nav-link{font-family:var(--ff-mono);font-size:var(--fs-xs);font-weight:var(--fw-medium);color:var(--text-muted);text-transform:lowercase;padding:.45rem .85rem;border-radius:var(--radius-sm);border:1px solid transparent;transition:all var(--duration) var(--ease)}
+    .nav-link:hover,.nav-link.active{color:var(--text);background:var(--bg-hover);border-color:var(--border)}
+    .btn{display:inline-flex;align-items:center;gap:var(--space-sm);padding:.75rem 1.6rem;border-radius:var(--radius-sm);font-family:var(--ff-body);font-size:var(--fs-small);font-weight:var(--fw-bold);letter-spacing:-.01em;transition:all var(--duration) var(--ease);cursor:pointer}
+    .btn-primary{background:var(--accent);color:#fff;border:1px solid var(--accent);box-shadow:0 4px 20px var(--accent-glow)}
+    .btn-primary:hover{background:#2563eb;border-color:#2563eb;transform:translateY(-2px);box-shadow:0 6px 24px rgba(59,130,246,.5)}
+    .btn-ghost{border:1px solid var(--border);color:var(--text-muted);background:var(--bg-card)}
+    .btn-ghost:hover{border-color:var(--border-light);color:var(--text);background:var(--bg-hover);transform:translateY(-1px)}
+    .hero{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:var(--space-3xl) var(--space-xl) var(--space-2xl);text-align:center}
+    .badge{display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .9rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-full);margin-bottom:var(--space-xl)}
+    .badge-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 10px var(--success)}
+    .badge-text{font-family:var(--ff-mono);font-size:12px;font-weight:var(--fw-semi);color:var(--text-muted);letter-spacing:.02em}
+    .hero-title{font-size:var(--fs-hero);font-weight:var(--fw-extra);line-height:1.1;letter-spacing:-.04em;margin-bottom:var(--space-lg)}
+    .hero-highlight{background:linear-gradient(135deg,#60a5fa 0%,#3b82f6 50%,#9333ea 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero-subtitle{font-size:1.15rem;color:var(--text-muted);max-width:680px;margin:0 auto var(--space-xl);line-height:1.7}
+    .hero-actions{display:flex;align-items:center;justify-content:center;gap:var(--space-md);margin-bottom:var(--space-3xl);flex-wrap:wrap}
+    .hero-stats{display:flex;align-items:center;justify-content:center;gap:var(--space-xl);flex-wrap:wrap}
+    .stat{display:flex;flex-direction:column;align-items:center}
+    .stat-number{font-family:var(--ff-mono);font-size:var(--fs-h2);font-weight:var(--fw-bold);letter-spacing:-.03em;color:var(--text)}
+    .stat-label{font-family:var(--ff-mono);font-size:var(--fs-xs);color:var(--text-dim);text-transform:lowercase;margin-top:var(--space-xs)}
+    .stat-divider{width:1px;height:40px;background:var(--border)}
+    .section{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:var(--space-2xl) var(--space-xl)}
+    .section-title{font-size:var(--fs-h2);font-weight:var(--fw-bold);letter-spacing:-.03em;text-align:center;margin-bottom:var(--space-2xl)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--space-lg)}
+    .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-xl);transition:all var(--duration) var(--ease);display:flex;flex-direction:column;gap:12px}
+    .card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 12px 30px -10px rgba(0,0,0,0.5)}
+    .card-monotag{font-family:var(--ff-mono);font-size:var(--fs-xs);font-weight:var(--fw-bold);color:var(--accent);display:inline-block;padding:.2rem .6rem;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:var(--radius-sm);align-self:flex-start}
+    .card-title{font-size:1.25rem;font-weight:var(--fw-bold);letter-spacing:-.02em;color:var(--text)}
+    .card-desc{font-size:var(--fs-small);color:var(--text-muted);line-height:1.6}
+    .footer{position:relative;z-index:1;padding:var(--space-xl);border-top:1px solid var(--border);margin-top:var(--space-2xl)}
+    .footer-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:var(--space-sm);flex-wrap:wrap}
+    .footer-text{font-size:var(--fs-xs);color:var(--text-dim)}
+    .footer-links{display:flex;gap:var(--space-md)}
+    .footer-links a{font-family:var(--ff-mono);font-size:var(--fs-xs);color:var(--text-dim);transition:color var(--duration) var(--ease)}
+    .footer-links a:hover{color:var(--accent)}
+    @media(max-width:768px){.nav{padding:var(--space-md);flex-direction:column;gap:var(--space-sm)}.nav-links{flex-wrap:wrap;justify-content:center}.hero{padding:var(--space-2xl) var(--space-md) var(--space-xl)}.hero-stats{gap:var(--space-md)}.hero-actions{flex-direction:column}.grid{grid-template-columns:1fr}.footer-inner{flex-direction:column;text-align:center}}
+</style>
+</head>
+<body>
+<div class="landing">
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+
+    <nav class="nav">
+        <div class="logo">
+            <div class="logo-icon">N</div>
+            <span class="logo-text">NorthConnect</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link active">home</a>
+            <a href="download.html" class="nav-link">download</a>
+            <a href="setup.html" class="nav-link">setup</a>
+            <a href="faq.html" class="nav-link">faq</a>
+            <a href="changelog.html" class="nav-link">changelog</a>
+        </div>
+    </nav>
+
+    <main class="hero">
+        <div class="badge">
+            <span class="badge-dot"></span>
+            <span class="badge-text">v1.0.0 &middot; Major Refactor &middot; Free & Open Source</span>
+        </div>
+
+        <h1 class="hero-title">
+            The Ultimate Multi-Account<br>
+            <span class="hero-highlight">Discord Voice & Music Hub</span>
+        </h1>
+
+        <p class="hero-subtitle">
+            Manage dozens of Discord accounts simultaneously, stream real-time YouTube Music &amp; Spotify tracks with zero lag, trigger soundboards, and join voice channels in one click.
+        </p>
+
+        <div class="hero-actions">
+            <a href="https://github.com/mnishantlabs/NorthConnect/releases/latest/download/NorthConnect-Setup-1.0.0.exe" class="btn btn-primary">
+                Download Setup Installer (v1.0.0) &rarr;
+            </a>
+            <a href="https://github.com/mnishantlabs/NorthConnect/releases/latest/download/NorthConnect-Portable-1.0.0.exe" class="btn btn-ghost">
+                Download Portable EXE
+            </a>
+            <a href="download.html" class="btn btn-ghost">
+                All Editions &amp; Extension
+            </a>
+        </div>
+
+        <div class="hero-stats">
+            <div class="stat">
+                <span class="stat-number">48 kHz</span>
+                <span class="stat-label">Lossless Voice Audio</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+                <span class="stat-number">0-Disk</span>
+                <span class="stat-label">In-Memory Streaming</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+                <span class="stat-number">1-Click</span>
+                <span class="stat-label">Voice Multi-Join</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">Local &amp; Encrypted</span>
+            </div>
+        </div>
+    </main>
+
+    <section class="section">
+        <h2 class="section-title">Feature Catalog</h2>
+        <div class="grid">
+            <div class="card">
+                <div class="card-monotag">AUDIO STREAMING</div>
+                <h3 class="card-title">YouTube &amp; Spotify Voice Streamer</h3>
+                <p class="card-desc">Search millions of songs or paste any YouTube Music or Spotify URL to stream directly into Discord voice channels with zero local disk writes and real-time raw PCM decoding.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-monotag">PLAYLIST &amp; GRID</div>
+                <h3 class="card-title">Compact Card Grid &amp; Local Preview</h3>
+                <p class="card-desc">Organize saved music in a compact card grid layout with duration tags, album artwork, format badges, and headphone preview directly through your PC speakers before broadcasting.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-monotag">MULTI-TOKEN</div>
+                <h3 class="card-title">Multi-Account Gateway Engine</h3>
+                <p class="card-desc">Bulk import, validate, and manage tokens with avatar previews and status indicators. Encrypted securely in local OS storage with zero telemetry.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-monotag">VC CONTROLS</div>
+                <h3 class="card-title">Voice Channels &amp; Screen Viewer</h3>
+                <p class="card-desc">One-click bulk voice join, broadcast target selection (broadcast to all tokens or route to a specific token), active screen share viewer, and safe leave server confirmation prompts.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-monotag">SOUNDBOARD</div>
+                <h3 class="card-title">Instant Soundboard Presets</h3>
+                <p class="card-desc">Trigger soundboard SFX across categorized presets (Memes, Gaming, Anime, SFX, Reactions) with volume boosting up to 200%.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-monotag">CHROME EXTENSION</div>
+                <h3 class="card-title">Token Extractor Extension</h3>
+                <p class="card-desc">Comes bundled with a browser extension that automatically captures your active Discord tokens and syncs them seamlessly into NorthConnect.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-inner">
+            <span class="footer-text">NorthConnect &middot; Independent tool &middot; Not affiliated with Discord Inc.</span>
+            <div class="footer-links">
+                <a href="https://github.com/mnishantlabs/NorthConnect" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://github.com/mnishantlabs/NorthConnect/releases" target="_blank" rel="noopener">Releases</a>
+                <a href="https://github.com/mnishantlabs/NorthConnect/issues" target="_blank" rel="noopener">Issues</a>
+            </div>
+        </div>
+    </footer>
+</div>
+</body>
+</html>
