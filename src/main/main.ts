@@ -16,7 +16,7 @@ import { VoiceService } from "./voice-service";
 import { ChannelService } from "./channel-service";
 import { JoinService } from "./join-service";
 import { AudioPlayerService } from "./voice-audio";
-import { searchOnlineMusic, type OnlineTrackResult } from "./youtube-service";
+import { searchOnlineMusic, ensureYtDlpBinary, type OnlineTrackResult } from "./youtube-service";
 import { ensurePresetSounds } from "./sound-presets";
 import { BridgeService } from "./bridge-service";
 import { tokenFromDict } from "../shared/types";
@@ -214,6 +214,23 @@ ipcMain.handle("rename-token", async (_e, token: string, name: string) => {
   broadcast("store-changed", { renamed: true });
 });
 
+ipcMain.handle("replace-token", async (_e, oldToken: string, newToken: string) => {
+  const cleanNew = String(newToken || "").trim();
+  if (!cleanNew) return { error: "New token cannot be empty" };
+  const existing = tokenRepo!.get(oldToken) || {};
+  tokenRepo!.remove_token(oldToken);
+  tokenRepo!.add_token(cleanNew, {
+    ...existing,
+    error: "",
+    code: "",
+    valid: true,
+  });
+  await validator!.run([cleanNew]);
+  tokenRepo!.save();
+  broadcast("store-changed", { replaced: true });
+  return { success: true };
+});
+
 ipcMain.handle("validate-tokens", async (_e, tokens: string[]) => {
   await validator!.run(tokens);
   tokenRepo!.save();
@@ -226,6 +243,65 @@ ipcMain.handle("get-servers", () => tokenRepo!.get_server_map());
 
 ipcMain.handle("get-channels", async (_e, token: string, guildId: string) => {
   return channels!.load(token, guildId);
+});
+
+ipcMain.handle("resolve-channel", async (_e, { token, channelId }: { token: string; channelId: string }) => {
+  return channels!.resolve(token, channelId);
+});
+
+ipcMain.handle("search-guild-members", async (_e, { token, guildId, query }: { token: string; guildId: string; query: string }) => {
+  try {
+    const q = String(query || "").trim();
+    const resp = await client!.get(`/guilds/${guildId}/members/search?query=${encodeURIComponent(q)}&limit=15`, token);
+    if (resp.status === 200) {
+      const data = await resp.json();
+      if (Array.isArray(data)) {
+        return data.map((m: any) => {
+          const u = m.user || {};
+          const uid = String(u.id);
+          const av = u.avatar;
+          const avUrl = av
+            ? `https://cdn.discordapp.com/avatars/${uid}/${av}.png?size=128`
+            : `https://cdn.discordapp.com/embed/avatars/${(BigInt(uid || "0") >> 22n) % 6n}.png`;
+          return {
+            userId: uid,
+            username: u.username || uid,
+            globalName: u.global_name || m.nick || u.username || uid,
+            avatarUrl: avUrl,
+          };
+        });
+      }
+    }
+  } catch (err: any) {
+    log!.error(`Failed to search guild members: ${err.message}`);
+  }
+  return [];
+});
+
+ipcMain.handle("get-user-info", async (_e, { token, userId }: { token: string; userId: string }) => {
+  try {
+    const uid = String(userId || "").trim();
+    if (!/^\d{17,20}$/.test(uid)) return null;
+    const resp = await client!.get(`/users/${uid}`, token);
+    if (resp.status === 200) {
+      const u = await resp.json();
+      if (u && u.id) {
+        const av = u.avatar;
+        const avUrl = av
+          ? `https://cdn.discordapp.com/avatars/${uid}/${av}.png?size=128`
+          : `https://cdn.discordapp.com/embed/avatars/${(BigInt(uid || "0") >> 22n) % 6n}.png`;
+        return {
+          userId: uid,
+          username: u.username || uid,
+          globalName: u.global_name || u.username || uid,
+          avatarUrl: avUrl,
+        };
+      }
+    }
+  } catch (err: any) {
+    log!.error(`Failed to get user info: ${err.message}`);
+  }
+  return null;
 });
 
 // ---- voice -----------------------------------------------------------------
@@ -312,6 +388,51 @@ ipcMain.handle("voice-stop-screenshare", async (_e, token: string) => {
   }
 });
 
+ipcMain.handle(
+  "voice-watch-stream",
+  async (_e, { token, targetUserId, guildId, channelId }: { token: string; targetUserId: string; guildId?: string; channelId?: string }) => {
+    try {
+      if (token === "all") {
+        const conns = voice!.connected_tokens();
+        let successCount = 0;
+        for (const t of conns) {
+          const ok = voice!.watch_stream(t, targetUserId, guildId, channelId);
+          if (ok) successCount++;
+        }
+        broadcast("voice-state-update", { targetUserId, isWatching: successCount > 0 });
+        return { success: successCount > 0, count: successCount };
+      }
+      const ok = voice!.watch_stream(token, targetUserId, guildId, channelId);
+      broadcast("voice-state-update", { token, targetUserId, isWatching: ok });
+      return { success: ok };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  }
+);
+
+ipcMain.handle("voice-stop-watching-stream", async (_e, token: string) => {
+  try {
+    if (token === "all") {
+      const conns = voice!.connected_tokens();
+      for (const t of conns) {
+        voice!.stop_watching_stream(t);
+      }
+      broadcast("voice-state-update", { isWatching: false });
+      return { success: true };
+    }
+    voice!.stop_watching_stream(token);
+    broadcast("voice-state-update", { token, isWatching: false });
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle("voice-get-streamers", async (_e, token?: string) => {
+  return voice!.get_active_streamers(token);
+});
+
 ipcMain.handle("voice-disconnect-all", async () => {
   const allTokens = tokenRepo ? Object.keys(tokenRepo.get_all()) : [];
   await voice!.disconnect_all(allTokens);
@@ -358,6 +479,39 @@ ipcMain.handle("get-log", () => log!.iter_all());
 ipcMain.handle("clear-log", () => log!.clear());
 
 // ---- audio & music player --------------------------------------------------
+function getAudioStorageDir(): string {
+  const dir = path.join(app.getPath("userData"), "audio_storage");
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+function persistAudioFile(sourcePath: string): string {
+  try {
+    const storageDir = getAudioStorageDir();
+    const fileName = path.basename(sourcePath);
+    const ext = path.extname(sourcePath);
+    const baseName = path.basename(sourcePath, ext);
+    
+    if (path.resolve(path.dirname(sourcePath)) === path.resolve(storageDir)) {
+      return sourcePath;
+    }
+    
+    let destPath = path.join(storageDir, fileName);
+    if (fs.existsSync(destPath) && fs.statSync(destPath).size !== fs.statSync(sourcePath).size) {
+      destPath = path.join(storageDir, `${baseName}_${Date.now()}${ext}`);
+    }
+    
+    if (!fs.existsSync(destPath)) {
+      fs.copyFileSync(sourcePath, destPath);
+    }
+    return destPath;
+  } catch {
+    return sourcePath;
+  }
+}
+
 ipcMain.handle("audio-select-files", async () => {
   if (!mainWindow) return [];
   const res = await dialog.showOpenDialog(mainWindow, {
@@ -372,16 +526,17 @@ ipcMain.handle("audio-select-files", async () => {
   const items = [];
   for (const fp of res.filePaths) {
     try {
-      const stat = fs.statSync(fp);
-      const dur = await audioPlayer!.getAudioDuration(fp);
+      const savedPath = persistAudioFile(fp);
+      const stat = fs.statSync(savedPath);
+      const dur = await audioPlayer!.getAudioDuration(savedPath);
       items.push({
-        id: Buffer.from(fp).toString("base64"),
-        title: path.parse(fp).name,
-        filePath: fp,
-        fileName: path.basename(fp),
+        id: Buffer.from(savedPath).toString("base64"),
+        title: path.parse(savedPath).name,
+        filePath: savedPath,
+        fileName: path.basename(savedPath),
         sizeBytes: stat.size,
         duration: dur,
-        ext: path.extname(fp).replace(".", "").toUpperCase(),
+        ext: path.extname(savedPath).replace(".", "").toUpperCase(),
       });
     } catch {
       /* ignore */
@@ -395,17 +550,19 @@ ipcMain.handle("audio-parse-dropped-files", async (_e, filePaths: string[]) => {
   for (const fp of filePaths) {
     try {
       if (!fs.existsSync(fp)) continue;
-      const stat = fs.statSync(fp);
-      if (stat.isDirectory()) continue;
-      const dur = await audioPlayer!.getAudioDuration(fp);
+      const statOriginal = fs.statSync(fp);
+      if (statOriginal.isDirectory()) continue;
+      const savedPath = persistAudioFile(fp);
+      const stat = fs.statSync(savedPath);
+      const dur = await audioPlayer!.getAudioDuration(savedPath);
       items.push({
-        id: Buffer.from(fp).toString("base64"),
-        title: path.parse(fp).name,
-        filePath: fp,
-        fileName: path.basename(fp),
+        id: Buffer.from(savedPath).toString("base64"),
+        title: path.parse(savedPath).name,
+        filePath: savedPath,
+        fileName: path.basename(savedPath),
         sizeBytes: stat.size,
         duration: dur,
-        ext: path.extname(fp).replace(".", "").toUpperCase(),
+        ext: path.extname(savedPath).replace(".", "").toUpperCase(),
       });
     } catch {
       /* ignore */
@@ -441,7 +598,11 @@ ipcMain.handle("audio-set-volume", (_e, volume: number) => audioPlayer!.setVolum
 ipcMain.handle("audio-set-loop", (_e, loop: boolean) => audioPlayer!.setLoop(loop));
 ipcMain.handle("audio-set-target", (_e, targetToken: string | "all") => audioPlayer!.setTargetToken(targetToken));
 ipcMain.handle("audio-get-state", () => audioPlayer!.getState());
-ipcMain.handle("audio-get-presets", () => ensurePresetSounds());
+ipcMain.handle("audio-get-presets", () => repo?.get("soundboard_presets", []) ?? []);
+ipcMain.handle("audio-save-presets", (_e, items: any[]) => {
+  repo?.set("soundboard_presets", items);
+  repo?.save();
+});
 ipcMain.handle("audio-get-library", () => repo?.get("audio_library", []) ?? []);
 ipcMain.handle("audio-save-library", (_e, items: any[]) => {
   repo?.set("audio_library", items);
@@ -475,6 +636,11 @@ app.whenReady().then(() => {
   bridge.start();
 
   createWindow();
+
+  // Ensure yt-dlp binary is verified/cached in the background for streaming
+  ensureYtDlpBinary().catch((err) => {
+    console.warn("Background yt-dlp check warning:", err);
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -39,4 +39,24 @@ export class ChannelService {
   cached(guildId: string): Array<{ id: string; name: string }> {
     return this.cache.get(guildId) ?? [];
   }
+
+  async resolve(token: string, channelId: string): Promise<{ id: string; name: string; guild_id: string; type: number } | null> {
+    try {
+      const resp = await this.client.get(`/channels/${channelId}`, token);
+      if (resp.status === 200) {
+        const data = await resp.json();
+        if (data && data.id) {
+          return {
+            id: String(data.id),
+            name: data.name || `Channel ${data.id}`,
+            guild_id: data.guild_id ? String(data.guild_id) : "",
+            type: Number(data.type) || 0,
+          };
+        }
+      }
+    } catch (err: any) {
+      this.log.error(`Channel resolve failed for ${channelId}: ${err?.message ?? err}`);
+    }
+    return null;
+  }
 }

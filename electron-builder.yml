@@ -9,6 +9,25 @@ files:
   - dist/**/*
   - package.json
 
+# Bundle native executables and media helpers directly on disk
+extraResources:
+  - from: bin/
+    to: bin
+  - from: dist/main/ffmpeg.exe
+    to: ffmpeg.exe
+  - from: dist/main/yt-dlp.exe
+    to: yt-dlp.exe
+
+asarUnpack:
+  - "**/*.exe"
+  - "**/*.node"
+  - "**/*.wasm"
+  - "node_modules/ffmpeg-static/**"
+  - "node_modules/opusscript/**"
+  - "dist/main/ffmpeg.exe"
+  - "dist/main/yt-dlp.exe"
+  - "dist/main/build/**"
+
 # Windows target configuration
 win:
   target:

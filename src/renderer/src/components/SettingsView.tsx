@@ -1,4 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import {
+  Sliders,
+  Shield,
+  Radio,
+  Eye,
+  Globe,
+  Copy,
+  RefreshCw,
+  CheckCircle2,
+  HardDrive,
+  Check,
+} from 'lucide-react';
 
 export interface SettingsShape {
   theme?: string;
@@ -31,6 +43,7 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onSave }) => {
   const [bridge, setBridge] = useState<BridgeStatus | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +64,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onSave }) 
     if (!bridge?.secret) return;
     try {
       await navigator.clipboard.writeText(bridge.secret);
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 1500);
     } catch {
       /* ignore */
     }
@@ -65,114 +80,467 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onSave }) 
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: 680 }}>
-      <div className="nc-settings-title" style={{ fontSize: 18, marginBottom: 18 }}>Settings</div>
+    <div
+      className="settings-container fade-in"
+      style={{
+        padding: '24px 28px',
+        overflowY: 'auto',
+        height: '100%',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px',
+        maxWidth: 820,
+      }}
+    >
+      {/* 1. Header */}
+      <div>
+        <h1
+          style={{
+            fontSize: 22,
+            fontWeight: 800,
+            letterSpacing: '-0.025em',
+            margin: '0 0 4px 0',
+            color: 'var(--text-primary)',
+          }}
+        >
+          Preferences & Configuration
+        </h1>
+        <p
+          style={{
+            fontSize: 12.5,
+            color: 'var(--text-muted)',
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span>System tuning</span>
+          <span>·</span>
+          <span>Discord API rate limits</span>
+          <span>·</span>
+          <span>Extension bridge sync</span>
+        </p>
+      </div>
 
-      <div className="nc-settings-section">
-        <div className="nc-settings-title">Discord API</div>
-        <div className="nc-card" style={{ padding: '4px 16px' }}>
-          <div className="nc-field">
-            <span className="nc-field-label">Validation concurrency</span>
-            <input className="nc-field-input" type="number" min={1} max={40} value={settings.concurrency}
-              onChange={(e) => num('concurrency', e.target.value)} />
+      {/* 2. Discord API Engine Card */}
+      <div
+        className="card"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-panel)',
+          borderRadius: 10,
+          padding: '18px 20px',
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border-light)', paddingBottom: 10 }}>
+          <Shield size={16} style={{ color: 'var(--primary)' }} />
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Discord API & Validation
+          </h2>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Row 1: Concurrency */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Validation Concurrency</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Simultaneous account verification requests (1-40)</div>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={40}
+              value={settings.concurrency}
+              onChange={(e) => num('concurrency', e.target.value)}
+              style={{
+                width: 70,
+                padding: '6px 10px',
+                borderRadius: 6,
+                background: 'var(--bg-main)',
+                border: 'none',
+                boxShadow: 'var(--shadow-sm)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                fontWeight: 600,
+                textAlign: 'center',
+                outline: 'none',
+              }}
+            />
           </div>
-          <div className="nc-field">
-            <span className="nc-field-label">API timeout (seconds)</span>
-            <input className="nc-field-input" type="number" min={1} max={60} value={settings.api_timeout}
-              onChange={(e) => num('api_timeout', e.target.value)} />
+
+          {/* Row 2: API Timeout */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>API Timeout</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Request timeout threshold in seconds</div>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={settings.api_timeout}
+              onChange={(e) => num('api_timeout', e.target.value)}
+              style={{
+                width: 70,
+                padding: '6px 10px',
+                borderRadius: 6,
+                background: 'var(--bg-main)',
+                border: 'none',
+                boxShadow: 'var(--shadow-sm)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                fontWeight: 600,
+                textAlign: 'center',
+                outline: 'none',
+              }}
+            />
           </div>
-          <div className="nc-field">
-            <span className="nc-field-label">429 retry delay (seconds)</span>
-            <input className="nc-field-input" type="number" min={0} max={30} value={settings.retry_delay}
-              onChange={(e) => num('retry_delay', e.target.value)} />
+
+          {/* Row 3: 429 Retry Delay */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Rate Limit (429) Delay</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Backoff wait interval before retrying rate-limited calls (seconds)</div>
+            </div>
+            <input
+              type="number"
+              min={0}
+              max={30}
+              value={settings.retry_delay}
+              onChange={(e) => num('retry_delay', e.target.value)}
+              style={{
+                width: 70,
+                padding: '6px 10px',
+                borderRadius: 6,
+                background: 'var(--bg-main)',
+                border: 'none',
+                boxShadow: 'var(--shadow-sm)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                fontWeight: 600,
+                textAlign: 'center',
+                outline: 'none',
+              }}
+            />
           </div>
-          <div className="nc-field" style={{ borderBottom: 'none' }}>
-            <span className="nc-field-label">Proxy (optional)</span>
-            <input className="nc-field-input wide" value={settings.proxy} placeholder="http://host:port"
-              onChange={(e) => onSave({ proxy: e.target.value })} />
+
+          {/* Row 4: Proxy */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Custom HTTP/SOCKS Proxy</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Route REST and Gateway traffic through a custom proxy</div>
+            </div>
+            <input
+              type="text"
+              placeholder="http://host:port or socks5://..."
+              value={settings.proxy || ''}
+              onChange={(e) => onSave({ proxy: e.target.value })}
+              style={{
+                flex: 1,
+                maxWidth: 220,
+                padding: '6px 10px',
+                borderRadius: 6,
+                background: 'var(--bg-main)',
+                border: 'none',
+                boxShadow: 'var(--shadow-sm)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                fontFamily: 'monospace',
+                outline: 'none',
+              }}
+            />
           </div>
         </div>
       </div>
 
-      <div className="nc-settings-section">
-        <div className="nc-settings-title">Voice</div>
-        <div className="nc-card" style={{ padding: '4px 16px' }}>
-          <div className="nc-field" style={{ borderBottom: 'none' }}>
-            <span className="nc-field-label">Join delay per account (seconds)</span>
-            <input className="nc-field-input" type="number" min={0} step={0.1} value={settings.delay}
-              onChange={(e) => num('delay', e.target.value)} />
+      {/* 3. Voice Engine Settings */}
+      <div
+        className="card"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-panel)',
+          borderRadius: 10,
+          padding: '18px 20px',
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border-light)', paddingBottom: 10 }}>
+          <Radio size={16} style={{ color: 'var(--primary)' }} />
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Voice Dispatch & Delays
+          </h2>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Join Delay per Account</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Staggered interval between sequential token VC joins (seconds)</div>
+          </div>
+          <input
+            type="number"
+            min={0}
+            step={0.1}
+            value={settings.delay}
+            onChange={(e) => num('delay', e.target.value)}
+            style={{
+              width: 70,
+              padding: '6px 10px',
+              borderRadius: 6,
+              background: 'var(--bg-main)',
+              border: 'none',
+              boxShadow: 'var(--shadow-sm)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              fontWeight: 600,
+              textAlign: 'center',
+              outline: 'none',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* 4. Visual Display & Appearance */}
+      <div
+        className="card"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-panel)',
+          borderRadius: 10,
+          padding: '18px 20px',
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border-light)', paddingBottom: 10 }}>
+          <Eye size={16} style={{ color: 'var(--primary)' }} />
+          <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Appearance & Interface Badges
+          </h2>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Toggle 1: Badges */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Account Badges</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Display Nitro, Phone, and User Flags on account rows</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.show_badges}
+              onChange={(e) => onSave({ show_badges: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: 'var(--primary)', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Toggle 2: User IDs */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Inline User IDs</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Render Discord Snowflake IDs directly beneath user names</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.show_ids}
+              onChange={(e) => onSave({ show_ids: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: 'var(--primary)', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Toggle 3: Auto-validate on startup */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Auto-validate on Startup</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Automatically trigger health validation when app opens</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.auto_validate}
+              onChange={(e) => onSave({ auto_validate: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: 'var(--primary)', cursor: 'pointer' }}
+            />
           </div>
         </div>
       </div>
 
-      <div className="nc-settings-section">
-        <div className="nc-settings-title">Appearance & display</div>
-        <div className="nc-card" style={{ padding: '4px 16px' }}>
-          <div className="nc-field">
-            <span className="nc-field-label">Show account badges (Nitro, Phone, flags)</span>
-            <label className="nc-switch">
-              <input type="checkbox" checked={settings.show_badges} onChange={(e) => onSave({ show_badges: e.target.checked })} />
-              <span className="nc-switch-slider" />
-            </label>
+      {/* 5. Extension Bridge Sync */}
+      <div
+        className="card"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-panel)',
+          borderRadius: 10,
+          padding: '18px 20px',
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Globe size={16} style={{ color: 'var(--primary)' }} />
+            <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+              Browser Extension Bridge
+            </h2>
           </div>
-          <div className="nc-field">
-            <span className="nc-field-label">Show user IDs inline</span>
-            <label className="nc-switch">
-              <input type="checkbox" checked={settings.show_ids} onChange={(e) => onSave({ show_ids: e.target.checked })} />
-              <span className="nc-switch-slider" />
-            </label>
+
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: 4,
+              background: bridge?.enabled && bridge.running ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-main)',
+              color: bridge?.enabled && bridge.running ? 'var(--success)' : 'var(--text-muted)',
+            }}
+          >
+            {bridge?.enabled ? (bridge.running ? `Listening on :${bridge.port}` : 'Bridge Stopped') : 'Disabled'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Sync toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Sync Tokens from Extension</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Automatically capture and sync tokens detected in browser sessions</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={!!settings.bridge_enabled}
+              onChange={(e) => onSave({ bridge_enabled: e.target.checked })}
+              style={{ width: 18, height: 18, accentColor: 'var(--primary)', cursor: 'pointer' }}
+            />
           </div>
-          <div className="nc-field" style={{ borderBottom: 'none' }}>
-            <span className="nc-field-label">Auto-validate on startup</span>
-            <label className="nc-switch">
-              <input type="checkbox" checked={settings.auto_validate} onChange={(e) => onSave({ auto_validate: e.target.checked })} />
-              <span className="nc-switch-slider" />
-            </label>
+
+          {/* Port */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Bridge WebSocket Port</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Local communication port for the Chrome/Firefox extension</div>
+            </div>
+            <input
+              type="number"
+              min={1024}
+              max={65535}
+              value={settings.bridge_port ?? 47474}
+              onChange={(e) => num('bridge_port', e.target.value)}
+              style={{
+                width: 80,
+                padding: '6px 10px',
+                borderRadius: 6,
+                background: 'var(--bg-main)',
+                border: 'none',
+                boxShadow: 'var(--shadow-sm)',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                fontWeight: 600,
+                textAlign: 'center',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Secret Key with Copy */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+              Bridge Authentication Key (Paste into browser extension options)
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                readOnly
+                value={bridge?.secret ?? ''}
+                style={{
+                  flex: 1,
+                  padding: '7px 12px',
+                  borderRadius: 6,
+                  background: 'var(--bg-main)',
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
+                  color: 'var(--text-primary)',
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={copySecret}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: 6,
+                  background: 'var(--bg-main)',
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
+                  color: copiedKey ? 'var(--success)' : 'var(--text-primary)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                {copiedKey ? <Check size={13} /> : <Copy size={13} />}
+                <span>{copiedKey ? 'Copied' : 'Copy'}</span>
+              </button>
+              <button
+                onClick={regenerateSecret}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: 6,
+                  background: 'var(--bg-main)',
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
+                  color: 'var(--text-secondary)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <RefreshCw size={13} />
+                <span>Regenerate</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="nc-settings-section">
-        <div className="nc-settings-title">Extension Bridge</div>
-        <div className="nc-card" style={{ padding: '4px 16px' }}>
-          <div className="nc-field">
-            <span className="nc-field-label">Sync tokens from the browser extension</span>
-            <span className="nc-field-label" style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-              When the extension saves or detects a token, it is added here in tokens.json.
-            </span>
-            <label className="nc-switch">
-              <input type="checkbox" checked={!!settings.bridge_enabled} onChange={(e) => onSave({ bridge_enabled: e.target.checked })} />
-              <span className="nc-switch-slider" />
-            </label>
+      {/* 6. Persistent Local Data */}
+      <div
+        className="card"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-panel)',
+          borderRadius: 10,
+          padding: '16px 20px',
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <HardDrive size={18} style={{ color: 'var(--text-muted)' }} />
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+            Local Storage & Assets
           </div>
-          <div className="nc-field">
-            <span className="nc-field-label">Bridge port</span>
-            <input className="nc-field-input" type="number" min={1024} max={65535} value={settings.bridge_port ?? 47474}
-              onChange={(e) => num('bridge_port', e.target.value)} />
-          </div>
-          <div className="nc-field">
-            <span className="nc-field-label" style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-              Status: {bridge?.enabled ? (bridge.running ? `listening on http://${bridge.host}:${bridge.port}` : 'stopped') : 'disabled'}
-              {bridge ? ` · ${bridge.count} token(s) stored` : ' · checking…'}
-            </span>
-          </div>
-          <div className="nc-field">
-            <span className="nc-field-label">Bridge key (paste into the extension's Settings)</span>
-            <span className="nc-field-row" style={{ display: 'flex', gap: 8 }}>
-              <input className="nc-field-input" readOnly value={bridge?.secret ?? ''} style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }} />
-              <button className="nc-btn" onClick={copySecret}>Copy</button>
-              <button className="nc-btn" onClick={regenerateSecret}>Regenerate</button>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="nc-settings-section">
-        <div className="nc-settings-title">Data</div>
-        <div className="nc-card" style={{ padding: '4px 16px' }}>
-          <div className="nc-field" style={{ borderBottom: 'none' }}>
-            <span className="nc-field-label">Token storage</span>
-            <span className="nc-field-label" style={{ color: 'var(--text-muted)', fontSize: 12 }}>Plaintext tokens.json in the app data folder (same schema as the original tool)</span>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+            Tokens, custom soundboard presets, and imported media are automatically stored in the local AppData directory.
           </div>
         </div>
       </div>

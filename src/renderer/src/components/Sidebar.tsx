@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Home,
   KeyRound,
@@ -11,6 +11,7 @@ import {
   PanelLeftOpen,
   Wrench,
 } from 'lucide-react';
+import { AppIcon } from './AppIcon';
 
 export type ViewId = 'home' | 'tokens' | 'connect' | 'tools' | 'play' | 'settings' | 'accounts' | 'servers' | 'voice' | 'activity';
 
@@ -41,19 +42,99 @@ const TOP_NAV_ITEMS: NavItemConfig[] = [
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, theme, onToggleTheme, counts }) => {
   const [width, setWidth] = useState<number>(() => {
     const saved = localStorage.getItem('northconnect-sidebar-width');
-    const parsed = saved ? parseFloat(saved) : NaN;
-    if (!isNaN(parsed)) return parsed <= 56 ? 56 : Math.max(190, Math.min(260, parsed));
-    return 210;
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed)) {
+        if (parsed <= 56) return 56;
+        return Math.max(180, Math.min(280, parsed));
+      }
+    }
+    return 220; // Default width
   });
-  const [lastWidth] = useState<number>(() => (width > 56 ? width : 210));
-  const widthRef = useRef(width);
 
-  const updateWidth = (w: number) => {
-    widthRef.current = w;
-    setWidth(w);
+  const [lastWidth, setLastWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('northconnect-sidebar-width');
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed) && parsed >= 180 && parsed <= 280) return parsed;
+    }
+    return 220;
+  });
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHandleHovered, setIsHandleHovered] = useState(false);
+  const [transitionEnabled, setTransitionEnabled] = useState(true);
+
+  const widthRef = useRef<number>(width);
+  const releaseXRef = useRef<number>(width);
+
+  const updateWidth = (newWidth: number) => {
+    widthRef.current = newWidth;
+    setWidth(newWidth);
   };
 
-  const toggleSidebar = () => {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setTransitionEnabled(false);
+    releaseXRef.current = widthRef.current;
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const clientX = e.clientX;
+      const minWidth = 180;
+      const maxWidth = 280;
+
+      releaseXRef.current = clientX;
+      const currentW = widthRef.current;
+
+      if (clientX < minWidth) {
+        if (currentW !== 56) {
+          setTransitionEnabled(true);
+          updateWidth(56);
+          localStorage.setItem('northconnect-sidebar-width', '56');
+        }
+      } else {
+        const targetWidth = Math.min(maxWidth, clientX);
+        if (currentW === 56) {
+          setTransitionEnabled(true);
+          updateWidth(targetWidth);
+          setLastWidth(targetWidth);
+          localStorage.setItem('northconnect-sidebar-width', String(targetWidth));
+        } else {
+          setTransitionEnabled(false);
+          updateWidth(targetWidth);
+          setLastWidth(targetWidth);
+          localStorage.setItem('northconnect-sidebar-width', String(targetWidth));
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setTransitionEnabled(true);
+      const finalX = releaseXRef.current;
+      if (finalX < 180) {
+        updateWidth(56);
+        localStorage.setItem('northconnect-sidebar-width', '56');
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const toggleSidebar = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTransitionEnabled(true);
     if (widthRef.current > 56) {
       updateWidth(56);
       localStorage.setItem('northconnect-sidebar-width', '56');
@@ -63,8 +144,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
     }
   };
 
-  const collapsed = width <= 56;
-
   const isViewActive = (id: ViewId) => {
     if (currentView === id) return true;
     if (id === 'tokens' && currentView === 'accounts') return true;
@@ -72,30 +151,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
     return false;
   };
 
-  const itemStyle = (active: boolean): React.CSSProperties => ({
+  const itemStyle = (isActive: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
-    justifyContent: collapsed ? 'center' : 'flex-start',
-    padding: collapsed ? '8px 0' : '8px 10px',
+    justifyContent: width > 56 ? 'flex-start' : 'center',
+    padding: width > 56 ? '10px 12px' : '10px 0',
     borderRadius: '6px',
-    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-    backgroundColor: active ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+    backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
     cursor: 'pointer',
-    transition: 'background-color 0.12s ease, color 0.12s ease',
+    transition: 'all 0.15s ease',
     width: '100%',
     boxSizing: 'border-box',
-    borderLeft: collapsed ? 'none' : `3px solid ${active ? 'var(--primary)' : 'transparent'}`,
-    position: 'relative',
-    fontWeight: active ? 600 : 500,
+    borderLeft: width > 56 ? `2px solid ${isActive ? 'var(--primary)' : 'transparent'}` : 'none',
+    borderTopLeftRadius: isActive && width > 56 ? '2px' : '6px',
+    borderBottomLeftRadius: isActive && width > 56 ? '2px' : '6px',
+    fontWeight: isActive ? 600 : 500,
+    boxShadow: isActive ? '0 1px 3px rgba(0, 0, 0, 0.04)' : 'none',
   });
 
   const labelStyle: React.CSSProperties = {
-    opacity: collapsed ? 0 : 1,
-    width: collapsed ? 0 : 'auto',
+    opacity: width > 56 ? 1 : 0,
+    width: width > 56 ? 'auto' : '0px',
     overflow: 'hidden',
     whiteSpace: 'nowrap',
-    transition: 'opacity 150ms ease, width 150ms ease',
-    marginLeft: collapsed ? 0 : 10,
+    transition: 'opacity 200ms ease, width 200ms ease',
+    marginLeft: width > 56 ? '12px' : '0px',
     display: 'inline-block',
     flex: 1,
     fontSize: '13px',
@@ -103,85 +184,81 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
 
   return (
     <aside
-      className={`sidebar ${collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
+      className={`sidebar ${width > 56 ? 'sidebar-expanded' : 'sidebar-collapsed'}`}
       style={{
         width: `${width}px`,
-        transition: 'width 180ms cubic-bezier(0.4, 0, 0.2, 1), padding 180ms ease',
+        transition: transitionEnabled ? 'width 200ms ease, padding 200ms ease' : 'none',
         position: 'relative',
-        padding: collapsed ? '10px 6px' : '12px 8px',
+        padding: width > 56 ? '16px 8px' : '16px 4px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         height: '100%',
         background: 'var(--bg-titlebar)',
-        borderRight: '1px solid var(--border-medium)',
+        borderRight: '1px solid var(--border-light)',
       }}
     >
-      {/* Top Header: Section Label & Collapse Button */}
-      <div>
-        <div
+      {/* Drag Resize Handle */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '4px',
+          height: '100%',
+          cursor: 'col-resize',
+          zIndex: 1000,
+          backgroundColor: isHandleHovered || isDragging ? 'var(--primary)' : 'transparent',
+          opacity: isHandleHovered || isDragging ? 0.6 : 0,
+          transition: 'background-color 0.2s ease, opacity 0.2s ease',
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseEnter={() => setIsHandleHovered(true)}
+        onMouseLeave={() => setIsHandleHovered(false)}
+      />
+
+      {/* Header containing App Icon and App Name */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: width > 56 ? 'flex-start' : 'center',
+          gap: width > 56 ? '12px' : '0px',
+          padding: width > 56 ? '0 10px' : '0',
+          overflow: 'hidden',
+          height: '48px',
+          flexShrink: 0,
+          WebkitAppRegion: 'drag',
+          width: '100%',
+          cursor: 'pointer',
+        } as React.CSSProperties}
+        onClick={() => onViewChange('home')}
+      >
+        <AppIcon size={26} />
+        <span
+          className="logo-text"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'space-between',
-            padding: collapsed ? '2px 0 8px 0' : '2px 4px 8px 4px',
+            fontSize: '15px',
+            fontWeight: 800,
+            letterSpacing: '-0.02em',
+            textTransform: 'none',
+            color: 'var(--text-primary)',
+            whiteSpace: 'nowrap',
+            opacity: width > 56 ? 1 : 0,
+            width: width > 56 ? 'auto' : '0px',
             overflow: 'hidden',
-            height: '28px',
-            flexShrink: 0,
-            width: '100%',
-            boxSizing: 'border-box',
+            transition: 'opacity 200ms ease, width 200ms ease',
+            display: 'inline-block',
           }}
         >
-          {!collapsed && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--text-muted)',
-              }}
-            >
-              Menu
-            </span>
-          )}
+          NorthConnect
+        </span>
+      </div>
+      <div style={{ height: 1, background: 'var(--sidebar-footer-border)', margin: '4px 0 10px 0', width: '100%' }} />
 
-          {/* Top Collapse Button */}
-          <button
-            onClick={toggleSidebar}
-            title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 24,
-              height: 24,
-              padding: 0,
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              borderRadius: 4,
-              transition: 'background-color 0.12s, color 0.12s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-muted)';
-            }}
-          >
-            {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-          </button>
-        </div>
-
-        <div style={{ height: 1, background: 'var(--border-light)', width: '100%', marginBottom: 8 }} />
-
-        {/* Primary Navigation Menu */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Primary Navigation Menu */}
+      <nav className="sidebar-nav" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {TOP_NAV_ITEMS.map(({ id, label, icon: Icon, badge, isConstruction }) => {
             const active = isViewActive(id);
             const badgeVal = badge ? badge(counts) : null;
@@ -191,24 +268,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
                 key={id}
                 style={itemStyle(active)}
                 onClick={() => onViewChange(id)}
-                title={collapsed ? `${label} ${isConstruction ? '(WIP)' : ''}` : ''}
+                title={width <= 56 ? `${label} ${isConstruction ? '(WIP)' : ''}` : ''}
               >
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: 18, color: active ? 'var(--primary)' : 'inherit' }}>
-                  <Icon size={16} />
+                <div
+                  className="sidebar-icon-wrapper"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '20px',
+                    color: active ? 'var(--primary)' : 'inherit',
+                  }}
+                >
+                  <Icon size={18} />
                 </div>
-                <span style={labelStyle}>{label}</span>
+                <span style={labelStyle} className="sidebar-label">{label}</span>
 
                 {/* Construction Pill */}
-                {isConstruction && !collapsed && (
+                {isConstruction && width > 56 && (
                   <span
                     style={{
-                      fontSize: 9,
+                      fontSize: 9.5,
                       fontWeight: 700,
                       color: 'var(--warning)',
-                      background: 'rgba(234, 179, 8, 0.12)',
-                      border: '1px solid rgba(234, 179, 8, 0.25)',
-                      borderRadius: 3,
-                      padding: '1px 4px',
+                      background: 'rgba(245, 158, 11, 0.12)',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      borderRadius: 4,
+                      padding: '1px 5px',
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
                     }}
@@ -218,13 +304,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
                 )}
 
                 {/* Count Badge */}
-                {badgeVal !== null && !collapsed && (
+                {badgeVal !== null && width > 56 && (
                   <span
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
                       color: active ? 'var(--primary)' : 'var(--text-muted)',
-                      background: active ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-card-hover)',
+                      background: active ? 'rgba(88, 101, 242, 0.12)' : 'var(--bg-card-hover)',
                       borderRadius: 4,
                       padding: '1px 6px',
                     }}
@@ -236,64 +322,114 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
             );
           })}
         </nav>
-      </div>
 
-      {/* Bottom Section: Settings & Footer */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* Bottom Section: Collapse Toggle, Settings & Theme Switcher */}
+      <div className="sidebar-bottom" style={{ width: '100%' }}>
+        {/* Toggle Button */}
+        <button
+          onClick={toggleSidebar}
+          title={width <= 56 ? 'Expand' : 'Collapse'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: width > 56 ? 'flex-start' : 'center',
+            padding: width > 56 ? '8px 12px' : '8px',
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            borderRadius: '6px',
+            width: width > 56 ? '100%' : '36px',
+            margin: width > 56 ? '0' : '0 auto',
+            gap: width > 56 ? '12px' : '0px',
+            outline: 'none',
+            boxSizing: 'border-box',
+            transition: 'background-color 0.15s ease, color 0.15s ease',
+          }}
+          className="sidebar-toggle-btn"
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '20px' }}>
+            {width > 56 ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+          </div>
+          <span style={labelStyle} className="sidebar-label">Collapse</span>
+        </button>
+
+        <div style={{ height: 1, background: 'var(--sidebar-footer-border)', margin: '6px 0', width: '100%' }} />
+
         {/* Settings Navigation Item */}
         <div
           style={itemStyle(isViewActive('settings'))}
           onClick={() => onViewChange('settings')}
-          title={collapsed ? 'Settings' : ''}
+          title={width <= 56 ? 'Settings' : ''}
         >
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: 18, color: isViewActive('settings') ? 'var(--primary)' : 'inherit' }}>
-            <Settings size={16} />
-          </div>
-          <span style={labelStyle}>Settings</span>
-        </div>
-
-        <div style={{ height: 1, background: 'var(--border-light)', width: '100%' }} />
-
-        {/* Footer with Version & Theme Switch */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'space-between',
-            padding: collapsed ? '2px 0' : '2px 4px',
-            boxSizing: 'border-box',
-          }}
-        >
-          {!collapsed && (
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>
-              v2.0.0
-            </span>
-          )}
-
-          <button
-            onClick={onToggleTheme}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          <div
+            className="sidebar-icon-wrapper"
             style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: 6,
-              padding: collapsed ? '4px' : '3px 8px',
-              cursor: 'pointer',
               display: 'flex',
+              justifyContent: 'center',
               alignItems: 'center',
-              gap: 5,
-              color: 'var(--text-secondary)',
-              transition: 'background-color 0.15s, border-color 0.15s',
+              width: '20px',
+              color: isViewActive('settings') ? 'var(--primary)' : 'inherit',
             }}
           >
-            {theme === 'dark' ? <Moon size={12} style={{ color: '#38bdf8' }} /> : <Sun size={12} style={{ color: '#f59e0b' }} />}
-            {!collapsed && (
-              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-secondary)' }}>
-                {theme === 'dark' ? 'Dark' : 'Light'}
-              </span>
-            )}
-          </button>
+            <Settings size={18} />
+          </div>
+          <span style={labelStyle} className="sidebar-label">Settings</span>
         </div>
+
+        {/* Sidebar Footer containing Version & Sliding Pill Theme Switcher */}
+        {width > 56 ? (
+          <div
+            className="sidebar-footer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderTop: '1px solid var(--sidebar-footer-border)',
+              padding: '10px 8px 2px 8px',
+              marginTop: '6px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <span className="sidebar-label sidebar-footer-version" style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              v2.0.0
+            </span>
+            <button
+              className={`theme-toggle-pill ${theme}`}
+              onClick={onToggleTheme}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+            >
+              <div className="theme-toggle-circle">
+                {theme === 'dark' ? <Moon size={13} /> : <Sun size={13} />}
+              </div>
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '10px 0 2px 0',
+              borderTop: '1px solid var(--sidebar-footer-border)',
+              marginTop: '6px',
+            }}
+          >
+            <button
+              className={`theme-toggle-pill ${theme}`}
+              onClick={onToggleTheme}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+            >
+              <div className="theme-toggle-circle">
+                {theme === 'dark' ? <Moon size={13} /> : <Sun size={13} />}
+              </div>
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

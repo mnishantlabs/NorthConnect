@@ -32,46 +32,109 @@ export interface AudioPlayerState {
   targetToken: string | "all";
 }
 
+function sanitizeBinaryPath(filePath: string): string {
+  if (!filePath) return filePath;
+  if (filePath.includes("app.asar") && !filePath.includes("app.asar.unpacked")) {
+    const unpacked = filePath.replace("app.asar", "app.asar.unpacked");
+    if (fs.existsSync(unpacked)) {
+      return unpacked;
+    }
+  }
+  return filePath;
+}
+
 export function getFfmpegPath(): string {
+  // 1. Explicit environment variable
+  if (process.env.FFMPEG_PATH) {
+    const p = sanitizeBinaryPath(process.env.FFMPEG_PATH);
+    if (fs.existsSync(p)) return p;
+  }
+  if (process.env.FFMPEG_BIN) {
+    const p = sanitizeBinaryPath(process.env.FFMPEG_BIN);
+    if (fs.existsSync(p)) return p;
+  }
+
+  // 2. Packaged Electron resources directory (extraResources / installer locations)
+  if (typeof process.resourcesPath !== "undefined") {
+    const resCandidates = [
+      path.join(process.resourcesPath, "ffmpeg.exe"),
+      path.join(process.resourcesPath, "bin", "ffmpeg.exe"),
+      path.join(process.resourcesPath, "app.asar.unpacked", "dist", "main", "ffmpeg.exe"),
+      path.join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-static", "ffmpeg.exe"),
+    ];
+    for (const c of resCandidates) {
+      if (fs.existsSync(c)) return c;
+    }
+  }
+
+  // 3. App userData directory
   try {
-    const ffmpegStatic = require("ffmpeg-static");
-    if (ffmpegStatic && typeof ffmpegStatic === "string" && fs.existsSync(ffmpegStatic)) {
-      return ffmpegStatic;
+    const { app } = require("electron");
+    if (app?.getPath) {
+      const u1 = path.join(app.getPath("userData"), "bin", "ffmpeg.exe");
+      if (fs.existsSync(u1)) return u1;
+      const u2 = path.join(app.getPath("userData"), "ffmpeg.exe");
+      if (fs.existsSync(u2)) return u2;
     }
   } catch {}
 
-  if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
-    return process.env.FFMPEG_PATH;
-  }
+  // 4. ffmpeg-static require check (sanitizing asar paths)
+  try {
+    const ffmpegStatic = require("ffmpeg-static");
+    if (ffmpegStatic && typeof ffmpegStatic === "string") {
+      const p = sanitizeBinaryPath(ffmpegStatic);
+      if (fs.existsSync(p)) return p;
+    }
+  } catch {}
 
+  // 5. Development and relative directory candidates
   const candidates: string[] = [
-    path.join(__dirname, "ffmpeg.exe"),
-    path.join(__dirname, "..", "ffmpeg.exe"),
-    path.join(__dirname, "..", "main", "ffmpeg.exe"),
-    path.join(__dirname, "..", "..", "node_modules", "ffmpeg-static", "ffmpeg.exe"),
-    path.join(process.cwd(), "node_modules", "ffmpeg-static", "ffmpeg.exe"),
+    sanitizeBinaryPath(path.join(__dirname, "ffmpeg.exe")),
+    sanitizeBinaryPath(path.join(__dirname, "..", "ffmpeg.exe")),
+    sanitizeBinaryPath(path.join(__dirname, "..", "main", "ffmpeg.exe")),
+    sanitizeBinaryPath(path.join(__dirname, "..", "..", "node_modules", "ffmpeg-static", "ffmpeg.exe")),
+    path.join(process.cwd(), "bin", "ffmpeg.exe"),
     path.join(process.cwd(), "dist", "main", "ffmpeg.exe"),
-    typeof process.resourcesPath !== "undefined"
-      ? path.join(process.resourcesPath, "ffmpeg.exe")
-      : "",
-    typeof process.resourcesPath !== "undefined"
-      ? path.join(process.resourcesPath, "app.asar.unpacked", "node_modules", "ffmpeg-static", "ffmpeg.exe")
-      : "",
+    path.join(process.cwd(), "node_modules", "ffmpeg-static", "ffmpeg.exe"),
   ];
 
   for (const c of candidates) {
     if (c && fs.existsSync(c)) {
-      return c;
+      const sanitized = sanitizeBinaryPath(c);
+      if (fs.existsSync(sanitized)) {
+        return sanitized;
+      }
     }
   }
 
   return "ffmpeg";
 }
 
-// Ensure FFMPEG_PATH environment variable is set for prism-media
+// Ensure FFMPEG_PATH and FFMPEG_BIN are exported for prism-media and ffmpeg-static
 const resolvedFfmpeg = getFfmpegPath();
 if (resolvedFfmpeg && fs.existsSync(resolvedFfmpeg)) {
   process.env.FFMPEG_PATH = resolvedFfmpeg;
+  process.env.FFMPEG_BIN = resolvedFfmpeg;
+}
+
+// Patch prism-media's FFmpeg getInfo to guarantee it uses our resolved on-disk binary
+try {
+  if (prism && (prism as any).FFmpeg) {
+    const origGetInfo = (prism as any).FFmpeg.getInfo;
+    (prism as any).FFmpeg.getInfo = function (force = false) {
+      const bin = getFfmpegPath();
+      if (bin && fs.existsSync(bin)) {
+        return {
+          command: bin,
+          output: "ffmpeg version bundled",
+          version: "bundled",
+        };
+      }
+      return origGetInfo ? origGetInfo.call(this, force) : { command: "ffmpeg", output: "", version: "" };
+    };
+  }
+} catch (e) {
+  console.warn("Could not patch prism.FFmpeg.getInfo:", e);
 }
 
 /**

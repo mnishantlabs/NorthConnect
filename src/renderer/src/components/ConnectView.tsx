@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Radio, Server, Mic, Users, Flame } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Radio, Server, VolumeX, LogOut } from 'lucide-react';
 import { VoiceView } from './VoiceView';
 import { ServersView } from './ServersView';
-import type { Token } from '../../../shared/types';
+import type { Token } from '@shared/types';
+import { status } from '@shared/predicates';
 
 interface ConnectViewProps {
   tokens: Token[];
@@ -25,85 +26,171 @@ interface ConnectViewProps {
 export const ConnectView: React.FC<ConnectViewProps> = (props) => {
   const [tab, setTab] = useState<'voice' | 'servers'>('voice');
 
+  const valid = useMemo(() => props.tokens.filter((t) => status(t) === 'valid'), [props.tokens]);
+
+  const serverCount = useMemo(() => {
+    const ids = new Set<string>();
+    for (const t of props.tokens) for (const s of t.servers ?? []) ids.add(s.id);
+    return ids.size;
+  }, [props.tokens]);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Sub-tab switcher */}
+    <div
+      className="fade-in"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        padding: '24px 28px',
+        boxSizing: 'border-box',
+        overflowY: 'auto',
+        gap: '20px',
+      }}
+    >
+      {/* 1. Header Bar (Matches Home) */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 16px',
-          borderBottom: '1px solid var(--border-medium)',
-          background: 'var(--bg-titlebar)',
-          flexShrink: 0,
+          flexWrap: 'wrap',
+          gap: 16,
         }}
       >
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            onClick={() => setTab('voice')}
+        <div>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: '-0.025em',
+              margin: 0,
+              color: 'var(--text-primary)',
+            }}
+          >
+            Voice Connect Hub
+          </h1>
+          <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              padding: '6px 14px',
-              borderRadius: 6,
-              border: 'none',
-              background: tab === 'voice' ? 'var(--primary)' : 'transparent',
-              color: tab === 'voice' ? '#ffffff' : 'var(--text-secondary)',
+              gap: 8,
               fontSize: 12.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
+              color: 'var(--text-muted)',
+              marginTop: 4,
             }}
           >
-            <Radio size={14} />
-            <span>Voice Joiner</span>
-            {props.connected.size > 0 && (
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  background: tab === 'voice' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(59, 130, 246, 0.2)',
-                  color: tab === 'voice' ? '#ffffff' : 'var(--primary)',
-                }}
-              >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              <strong style={{ color: 'var(--text-secondary)' }}>{valid.length}</strong> Accounts Ready
+            </span>
+            <span>·</span>
+            <span>
+              <strong style={{ color: 'var(--text-secondary)' }}>{serverCount}</strong> Accessible Guilds
+            </span>
+            <span>·</span>
+            <span style={{ color: props.connected.size > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>
+              <strong style={{ color: props.connected.size > 0 ? 'var(--primary)' : 'var(--text-secondary)' }}>
                 {props.connected.size}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setTab('servers')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 14px',
-              borderRadius: 6,
-              border: 'none',
-              background: tab === 'servers' ? 'var(--primary)' : 'transparent',
-              color: tab === 'servers' ? '#ffffff' : 'var(--text-secondary)',
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Server size={14} />
-            <span>Guilds & Channels</span>
-          </button>
+              </strong>{' '}
+              Voice Active
+            </span>
+          </div>
         </div>
 
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-          {tab === 'voice' ? `${props.connected.size} active voice session${props.connected.size === 1 ? '' : 's'}` : 'Browse guild memberships'}
+        {/* Tab switcher & Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              display: 'flex',
+              background: 'var(--bg-main)',
+              padding: 2,
+              borderRadius: 6,
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <button
+              onClick={() => setTab('voice')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                borderRadius: 4,
+                border: 'none',
+                background: tab === 'voice' ? 'var(--primary)' : 'transparent',
+                color: tab === 'voice' ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.12s ease',
+              }}
+            >
+              <Radio size={13} />
+              <span>Voice Joiner</span>
+              {props.connected.size > 0 && (
+                <span
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    padding: '1px 5px',
+                    borderRadius: 10,
+                    background: tab === 'voice' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(88, 101, 242, 0.2)',
+                    color: tab === 'voice' ? '#ffffff' : 'var(--primary)',
+                  }}
+                >
+                  {props.connected.size}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setTab('servers')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                borderRadius: 4,
+                border: 'none',
+                background: tab === 'servers' ? 'var(--primary)' : 'transparent',
+                color: tab === 'servers' ? '#ffffff' : 'var(--text-secondary)',
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.12s ease',
+              }}
+            >
+              <Server size={13} />
+              <span>Guilds & Channels</span>
+            </button>
+          </div>
+
+          {props.connected.size > 0 && (
+            <button
+              onClick={() => props.onLeave('')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '7px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 6,
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: 'var(--danger)',
+                cursor: 'pointer',
+              }}
+            >
+              <LogOut size={12} />
+              <span>Leave All ({props.connected.size})</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, minHeight: 0, padding: tab === 'servers' ? '12px 16px' : '0' }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
         {tab === 'voice' ? <VoiceView {...props} /> : <ServersView tokens={props.tokens} connected={props.connected} />}
       </div>
     </div>

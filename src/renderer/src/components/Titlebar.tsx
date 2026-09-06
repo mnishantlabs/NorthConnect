@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 import { WindowControls } from './WindowControls';
 import { AppIcon } from './AppIcon';
-import { status, displayName } from '../../../shared/predicates';
-import type { Token } from '../../../shared/types';
+import { status, displayName } from '@shared/predicates';
+import type { Token } from '@shared/types';
 import type { ViewId } from './Sidebar';
 
 interface TitlebarProps {
@@ -278,128 +278,117 @@ export const Titlebar: React.FC<TitlebarProps> = ({
     }
   };
 
+  // Track theme changes
+  const isDark = theme !== 'light';
+
+  // Track scroll position of the main scroll container
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target && typeof target.scrollTop === 'number') {
+        const classes = target.classList;
+        if (
+          classes &&
+          (classes.contains('app-content') ||
+            classes.contains('home-container') ||
+            classes.contains('content-area') ||
+            classes.contains('scrollable'))
+        ) {
+          setIsScrolled(target.scrollTop > 0);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, []);
+
+  const headerStyle: React.CSSProperties = {
+    height: '48px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    position: 'relative',
+    padding: '0 16px',
+    width: '100%',
+    WebkitAppRegion: 'drag',
+    flexShrink: 0,
+    zIndex: 50,
+    boxSizing: 'border-box',
+    transition: 'background-color 0.25s ease, border-color 0.25s ease, backdrop-filter 0.25s ease, box-shadow 0.25s ease',
+    backgroundColor: isScrolled
+      ? (isDark ? 'rgba(15, 15, 15, 0.85)' : 'rgba(245, 245, 245, 0.85)')
+      : 'transparent',
+    borderBottom: isScrolled
+      ? (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.08)')
+      : '1px solid transparent',
+    backdropFilter: isScrolled ? 'blur(12px)' : 'none',
+    WebkitBackdropFilter: isScrolled ? 'blur(12px)' : 'none',
+    boxShadow: isScrolled
+      ? (isDark ? '0 4px 20px rgba(0, 0, 0, 0.15)' : '0 4px 20px rgba(0, 0, 0, 0.03)')
+      : 'none',
+  };
+
   return (
-    <header
-      className="nc-titlebar"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: '52px',
-        padding: '0 0 0 16px',
-        background: 'var(--bg-titlebar)',
-        borderBottom: '1px solid var(--border-medium)',
-        boxSizing: 'border-box',
-        position: 'relative',
-        zIndex: 50,
-        WebkitAppRegion: 'drag',
-      }}
-    >
-      {/* Left: App Logo, Name & Refined Minimalist Status Pill */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, WebkitAppRegion: 'no-drag' }}>
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}
-          onClick={() => onNavigate('home')}
-          title="NorthConnect Home"
-        >
-          <AppIcon size={26} />
-          <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            NorthConnect
-          </span>
-        </div>
-
-        {/* Clean, Unified Status Pill */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-medium)',
-            borderRadius: '6px',
-            padding: '3px 10px',
-            fontSize: '11.5px',
-            fontWeight: 500,
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{counts.valid}</span>
-            <span style={{ color: 'var(--text-muted)' }}>valid</span>
-          </div>
-
-          <div style={{ width: 1, height: 10, background: 'var(--border-medium)' }} />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: counts.invalid > 0 ? '#ef4444' : 'var(--text-muted)' }} />
-            <span style={{ color: counts.invalid > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600 }}>{counts.invalid}</span>
-            <span style={{ color: 'var(--text-muted)' }}>invalid</span>
-          </div>
-
-          {counts.locked > 0 && (
-            <>
-              <div style={{ width: 1, height: 10, background: 'var(--border-medium)' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{counts.locked}</span>
-                <span style={{ color: 'var(--text-muted)' }}>locked</span>
-              </div>
-            </>
-          )}
-
-          {validating && (
-            <>
-              <div style={{ width: 1, height: 10, background: 'var(--border-medium)' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--primary)' }}>
-                <RefreshCw size={11} className="spin-anim" />
-                <span>validating...</span>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Center: Global Search Bar */}
+    <header className="titlebar" style={headerStyle}>
+      {/* Center: Search Pill Container perfectly centered */}
       <div
+        className="titlebar-search-wrapper"
         ref={containerRef}
         style={{
-          position: 'relative',
+          position: 'absolute',
+          left: '50%',
+          transform: 'translateX(-50%)',
           width: '100%',
-          maxWidth: '460px',
-          margin: '0 20px',
+          maxWidth: '440px',
           WebkitAppRegion: 'no-drag',
+          zIndex: 60,
         }}
       >
         <div
+          className="titlebar-search-container"
           style={{
             display: 'flex',
             alignItems: 'center',
-            height: '32px',
-            background: 'var(--bg-card)',
-            border: isOpen ? '1px solid var(--primary)' : '1px solid var(--border-medium)',
-            borderRadius: '6px',
-            padding: '0 10px',
-            boxShadow: isOpen ? '0 0 0 2px var(--primary-glow)' : 'none',
-            transition: 'border-color 0.12s ease, box-shadow 0.12s ease',
+            height: '36px',
+            borderRadius: '18px',
+            padding: '0 14px',
+            border: 'none',
+            backgroundColor: isFocused
+              ? (isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.06)')
+              : (isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.04)'),
+            boxShadow: isFocused
+              ? `0 0 0 2px ${isDark ? 'rgba(88, 101, 242, 0.4)' : 'rgba(88, 101, 242, 0.25)'}`
+              : 'none',
+            transition: 'all 0.2s ease',
           }}
           onClick={() => {
             inputRef.current?.focus();
             setIsOpen(true);
           }}
         >
-          <Search size={14} style={{ color: 'var(--text-muted)', marginRight: 8, flexShrink: 0 }} />
+          <Search size={14} style={{ color: 'var(--text-secondary)', marginRight: 10, flexShrink: 0 }} />
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search anything... (Home, Token, Connect, Play, Settings)"
+            placeholder="Search accounts, servers, tools & actions..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setIsOpen(true);
               setSelectedIndex(0);
             }}
-            onFocus={() => setIsOpen(true)}
+            onFocus={() => {
+              setIsFocused(true);
+              setIsOpen(true);
+            }}
+            onBlur={() => {
+              setIsFocused(false);
+            }}
             onKeyDown={handleInputKeyDown}
             style={{
               flex: 1,
@@ -407,7 +396,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
               border: 'none',
               outline: 'none',
               color: 'var(--text-primary)',
-              fontSize: '12.5px',
+              fontSize: '13px',
               fontFamily: 'inherit',
               minWidth: 0,
             }}
@@ -428,19 +417,19 @@ export const Titlebar: React.FC<TitlebarProps> = ({
                 alignItems: 'center',
               }}
             >
-              <X size={13} />
+              <X size={14} />
             </button>
           ) : (
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 2,
-                background: 'var(--bg-main)',
-                border: '1px solid var(--border-light)',
+                gap: 3,
+                background: 'var(--bg-card)',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
                 borderRadius: 4,
                 padding: '2px 6px',
-                fontSize: '10.5px',
+                fontSize: '11px',
                 color: 'var(--text-muted)',
                 fontWeight: 600,
                 pointerEvents: 'none',
@@ -491,7 +480,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
                         justifyContent: 'space-between',
                         padding: '8px 10px',
                         borderRadius: '6px',
-                        background: isSelected ? 'rgba(59, 130, 246, 0.14)' : 'transparent',
+                        background: isSelected ? 'rgba(88, 101, 242, 0.14)' : 'transparent',
                         color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                         cursor: 'pointer',
                         transition: 'background-color 0.1s ease',
@@ -554,7 +543,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
       </div>
 
       {/* Right: Window Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', height: '100%', WebkitAppRegion: 'no-drag' }}>
+      <div style={{ display: 'flex', alignItems: 'center', height: '100%', WebkitAppRegion: 'no-drag', marginLeft: 'auto' }}>
         <WindowControls />
       </div>
     </header>

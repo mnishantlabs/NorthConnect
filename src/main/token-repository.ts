@@ -143,7 +143,7 @@ export class TokenRepository {
 
   remove_invalid(): number {
     const toRemove = Object.entries(this.data)
-      .filter(([, info]) => !info.user_id)
+      .filter(([, info]) => info.valid === false || (!info.user_id && info.error))
       .map(([t]) => t);
     for (const t of toRemove) delete this.data[t];
     this.invalidate();
@@ -152,7 +152,10 @@ export class TokenRepository {
 
   remove_locked(): number {
     const toRemove = Object.entries(this.data)
-      .filter(([, info]) => !info.user_id && info.flags?.length)
+      .filter(([, info]) => {
+        const err = String(info.error || '').toUpperCase();
+        return err.includes('LOCK') || err.includes('FLAGGED') || info.code === 'LOCKED';
+      })
       .map(([t]) => t);
     for (const t of toRemove) delete this.data[t];
     this.invalidate();
@@ -167,16 +170,22 @@ export class TokenRepository {
   private normalize(info: Record<string, any>): Record<string, any> {
     return {
       username: info.username ?? "Unknown",
+      global_name: info.global_name ?? info.displayName ?? null,
       discriminator: info.discriminator ?? "0",
       user_id: info.user_id ?? "",
+      avatar: info.avatar ?? null,
+      avatar_url: info.avatar_url ?? null,
       email: info.email ?? null,
       phone: info.phone ?? null,
-      mfa_enabled: info.mfa_enabled ?? false,
-      is_bot: info.is_bot ?? false,
-      is_verified: info.is_verified ?? info.verified ?? false,
-      premium_type: info.premium_type ?? 0,
-      flags: info.flags ?? [],
-      servers: info.servers ?? [],
+      mfa_enabled: Boolean(info.mfa_enabled ?? false),
+      is_bot: Boolean(info.is_bot ?? false),
+      is_verified: Boolean(info.is_verified ?? info.verified ?? false),
+      premium_type: Number(info.premium_type ?? 0) || 0,
+      flags: Array.isArray(info.flags) ? info.flags : [],
+      servers: Array.isArray(info.servers) ? info.servers : [],
+      valid: info.valid !== undefined ? Boolean(info.valid) : true,
+      error: info.error ?? "",
+      code: info.code ?? "",
     };
   }
 }

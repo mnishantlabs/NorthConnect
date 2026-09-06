@@ -11,8 +11,8 @@ import { SettingsView, type SettingsShape } from './components/SettingsView';
 import { VoiceBar } from './components/VoiceBar';
 import { ImportDialog } from './components/ImportDialog';
 import { useTheme } from './contexts/ThemeContext';
-import { tokenFromDict } from '../../shared/types';
-import { status } from '../../shared/predicates';
+import { tokenFromDict } from '@shared/types';
+import { status } from '@shared/predicates';
 
 const DEFAULT_SETTINGS: SettingsShape & { recent_voice?: any[] } = {
   concurrency: 5,
@@ -206,22 +206,22 @@ export default function App() {
   const recents: Array<{ guild_id: string; guild_name: string; channel_id: string; channel_name: string }> =
     settings.recent_voice ?? [];
 
+  const counts = useMemo(() => {
+    const c = { valid: 0, invalid: 0, locked: 0 };
+    for (const t of tokens) {
+      const s = status(t);
+      if (s === 'valid') c.valid++;
+      else if (s === 'locked') c.locked++;
+      else c.invalid++;
+    }
+    return c;
+  }, [tokens]);
+
   return (
     <div className="app-container" style={{ position: 'relative' }}>
-      {/* Top Titlebar across the entire window */}
-      <Titlebar
-        tokens={tokens}
-        validating={validating}
-        onNavigate={setView}
-        onImport={() => setImportOpen(true)}
-        onValidateAll={() => handleValidate(tokens)}
-        onDisconnectAll={handleLeaveAll}
-        onSelectToken={handleJoinVoice}
-        onToggleTheme={toggleTheme}
-        theme={theme === 'light' ? 'light' : 'dark'}
-      />
-
+      {/* Main Workspace Frame */}
       <div className="main-content">
+        {/* Left Navigation Sidebar (full height) */}
         <Sidebar
           currentView={view}
           onViewChange={setView}
@@ -230,7 +230,21 @@ export default function App() {
           counts={{ accounts: tokens.length, servers: serverCount, connected: connected.size }}
         />
 
-        <div className="app-main" style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', minWidth: 0 }}>
+        {/* Right Area: Main app layout container with Titlebar inside */}
+        <div className="app-main" style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', minWidth: 0, height: '100%' }}>
+          {/* Top Titlebar / Header inside the right area */}
+          <Titlebar
+            tokens={tokens}
+            validating={validating}
+            onNavigate={setView}
+            onImport={() => setImportOpen(true)}
+            onValidateAll={() => handleValidate(tokens)}
+            onDisconnectAll={handleLeaveAll}
+            onSelectToken={handleJoinVoice}
+            onToggleTheme={toggleTheme}
+            theme={theme === 'light' ? 'light' : 'dark'}
+          />
+
           <div style={{ display: 'flex', flexDirection: 'row', flex: 1, overflow: 'hidden', width: '100%', minHeight: 0 }}>
             <div className="app-content" style={{ minWidth: 0, flex: 1, height: '100%', overflow: 'hidden' }}>
               {view === 'home' && (
@@ -286,6 +300,8 @@ export default function App() {
           <VoiceBar
             connectedCount={connected.size}
             tokenCount={tokens.length}
+            counts={counts}
+            validating={validating}
             onLeaveAll={handleLeaveAll}
             onOpenVoice={() => setView('connect')}
           />

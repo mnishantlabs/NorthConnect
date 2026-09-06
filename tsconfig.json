@@ -23,7 +23,8 @@
     /* Paths */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/renderer/src/*"]
+      "@/*": ["src/renderer/src/*"],
+      "@shared/*": ["src/shared/*"]
     }
   },
   "include": ["src"]

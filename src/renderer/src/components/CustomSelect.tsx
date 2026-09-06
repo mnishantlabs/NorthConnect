@@ -192,7 +192,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                       justifyContent: 'space-between',
                       padding: '8px 10px',
                       borderRadius: 6,
-                      background: isSelected ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+                      background: isSelected ? 'rgba(88, 101, 242, 0.12)' : 'transparent',
                       color: isSelected ? 'var(--primary)' : 'var(--text-primary)',
                       fontWeight: isSelected ? 600 : 500,
                       fontSize: 12.5,

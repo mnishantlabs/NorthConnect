@@ -172,9 +172,50 @@ export class VoiceService {
     }
   }
 
+  watch_stream(token: string, targetUserId: string, guildId?: string, channelId?: string): boolean {
+    const vc = this.connections.get(token);
+    if (vc) {
+      const ok = vc.watchStream(targetUserId, guildId, channelId);
+      this.onStateChanged?.({ type: "stream_watch_updated", token });
+      return ok;
+    }
+    return false;
+  }
+
+  stop_watching_stream(token: string): void {
+    const vc = this.connections.get(token);
+    if (vc) {
+      vc.stopWatchingStream();
+      this.onStateChanged?.({ type: "stream_watch_updated", token });
+    }
+  }
+
+  get_active_streamers(token?: string) {
+    if (token) {
+      const vc = this.connections.get(token);
+      return vc ? vc.getActiveStreamers() : [];
+    }
+    const all = new Map<string, any>();
+    for (const vc of this.connections.values()) {
+      for (const s of vc.getActiveStreamers()) {
+        all.set(s.userId, s);
+      }
+    }
+    return Array.from(all.values());
+  }
+
   get_voice_states(): Record<
     string,
-    { guildId: string | null; channelId: string | null; mute: boolean; deaf: boolean; isStreaming: boolean }
+    {
+      guildId: string | null;
+      channelId: string | null;
+      mute: boolean;
+      deaf: boolean;
+      isStreaming: boolean;
+      isWatching?: boolean;
+      watchingUserId?: string | null;
+      watchingStreamKey?: string | null;
+    }
   > {
     const res: Record<string, any> = {};
     for (const [token, vc] of this.connections.entries()) {

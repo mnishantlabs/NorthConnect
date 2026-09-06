@@ -40,8 +40,11 @@ export function voiceTargetFromDict(data: any): VoiceTarget {
 export interface RawToken {
   token: string;
   username?: string;
+  global_name?: string | null;
   discriminator?: string;
   user_id?: string;
+  avatar?: string | null;
+  avatar_url?: string | null;
   email?: string | null;
   phone?: string | null;
   mfa_enabled?: boolean;
@@ -50,6 +53,7 @@ export interface RawToken {
   premium_type?: number;
   flags?: string[];
   servers?: Array<{ id: string; name: string }>;
+  valid?: boolean;
   error?: string;
   code?: string;
 }
@@ -57,8 +61,11 @@ export interface RawToken {
 export interface Token {
   token: string;
   username: string;
+  global_name: string | null;
   discriminator: string;
   user_id: string;
+  avatar: string | null;
+  avatar_url: string | null;
   email: string | null;
   phone: string | null;
   mfa_enabled: boolean;
@@ -67,16 +74,36 @@ export interface Token {
   premium_type: number;
   flags: string[];
   servers: ServerInfo[];
+  valid: boolean;
   error: string;
   code: string;
 }
 
 export function tokenFromDict(token: string, data: any): Token {
+  const userId = String(data?.user_id ?? '');
+  const avatarHash = data?.avatar ?? null;
+  let avatarUrl = data?.avatar_url ?? null;
+  if (!avatarUrl && userId) {
+    if (avatarHash) {
+      avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png?size=128`;
+    } else {
+      try {
+        const index = Number((BigInt(userId) >> 22n) % 6n);
+        avatarUrl = `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+      } catch {
+        avatarUrl = `https://cdn.discordapp.com/embed/avatars/0.png`;
+      }
+    }
+  }
+
   return {
     token,
     username: String(data?.username ?? 'Unknown'),
+    global_name: data?.global_name ?? data?.displayName ?? null,
     discriminator: String(data?.discriminator ?? '0'),
-    user_id: String(data?.user_id ?? ''),
+    user_id: userId,
+    avatar: avatarHash,
+    avatar_url: avatarUrl,
     email: data?.email ?? null,
     phone: data?.phone ?? null,
     mfa_enabled: Boolean(data?.mfa_enabled ?? false),
@@ -85,6 +112,7 @@ export function tokenFromDict(token: string, data: any): Token {
     premium_type: Number(data?.premium_type ?? 0) || 0,
     flags: Array.isArray(data?.flags) ? data.flags : [],
     servers: Array.isArray(data?.servers) ? data.servers.map(serverInfoFromDict) : [],
+    valid: data?.valid !== undefined ? Boolean(data?.valid) : (!data?.error && Boolean(userId)),
     error: String(data?.error ?? ''),
     code: String(data?.code ?? ''),
   };
@@ -93,8 +121,11 @@ export function tokenFromDict(token: string, data: any): Token {
 export function tokenToDict(t: Token): Record<string, unknown> {
   const d: Record<string, unknown> = {
     username: t.username,
+    global_name: t.global_name,
     discriminator: t.discriminator,
     user_id: t.user_id,
+    avatar: t.avatar,
+    avatar_url: t.avatar_url,
     email: t.email,
     phone: t.phone,
     mfa_enabled: t.mfa_enabled,
@@ -102,6 +133,9 @@ export function tokenToDict(t: Token): Record<string, unknown> {
     premium_type: t.premium_type,
     flags: t.flags,
     servers: t.servers.map((s) => ({ id: s.id, name: s.name })),
+    valid: t.valid,
+    error: t.error,
+    code: t.code,
   };
   return d;
 }

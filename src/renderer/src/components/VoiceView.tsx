@@ -25,8 +25,8 @@ import {
   Volume1,
   Share2,
 } from 'lucide-react';
-import type { Token } from '../../../shared/types';
-import { status, displayName } from '../../../shared/predicates';
+import type { Token } from '@shared/types';
+import { status, displayName } from '@shared/predicates';
 import { CustomSelect, type SelectOption } from './CustomSelect';
 
 interface VoiceViewProps {
@@ -79,9 +79,16 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
 
   const [channels, setChannels] = useState<ChannelOpt[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(false);
+  const [channelMode, setChannelMode] = useState<'browse' | 'manual'>('browse');
+  const [channelFilter, setChannelFilter] = useState('');
+  const [manualChannelId, setManualChannelId] = useState('');
+  const [resolvingChannel, setResolvingChannel] = useState(false);
+  const [manualResolveStatus, setManualResolveStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Dynamic voice states per token: { mute, deaf, isStreaming, guildId, channelId }
-  const [voiceStates, setVoiceStates] = useState<Record<string, { mute: boolean; deaf: boolean; isStreaming?: boolean }>>({});
+  // Dynamic voice states per token: { mute, deaf, isStreaming, guildId, channelId, isWatching, watchingUserId }
+  const [voiceStates, setVoiceStates] = useState<
+    Record<string, { mute: boolean; deaf: boolean; isStreaming?: boolean; isWatching?: boolean; watchingUserId?: string | null; watchingStreamKey?: string | null }>
+  >({});
 
   // Screen Share Modal State
   const [screenShareModalOpen, setScreenShareModalOpen] = useState(false);
@@ -91,11 +98,30 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
   const [targetScreenShareToken, setTargetScreenShareToken] = useState<string>('');
   const [streamQuality, setStreamQuality] = useState<'720p' | '1080p' | 'source'>('720p');
 
-  // Watch Stream Viewer Modal State
+  // Watch Stream Modal State
   const [streamViewerOpen, setStreamViewerOpen] = useState(false);
   const [activeWatchingToken, setActiveWatchingToken] = useState<string>('');
   const [streamVolume, setStreamVolume] = useState<number>(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [watchAllTokens, setWatchAllTokens] = useState(false);
+  const [activeStreamers, setActiveStreamers] = useState<
+    Array<{ userId: string; username: string; globalName: string; avatarUrl: string; streamKey: string }>
+  >([]);
+  const [loadingStreamers, setLoadingStreamers] = useState(false);
+  const [streamerSearchQuery, setStreamerSearchQuery] = useState('');
+  const [streamerSearchResults, setStreamerSearchResults] = useState<
+    Array<{ userId: string; username: string; globalName: string; avatarUrl: string }>
+  >([]);
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+  const [manualStreamerId, setManualStreamerId] = useState('');
+  const [manualUserPreview, setManualUserPreview] = useState<{
+    userId: string;
+    username: string;
+    globalName: string;
+    avatarUrl: string;
+  } | null>(null);
+  const [isLoadingUserPreview, setIsLoadingUserPreview] = useState(false);
+  const [streamActionMessage, setStreamActionMessage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Refresh voice states from backend
@@ -109,22 +135,38 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
     }
   }, []);
 
+  // Fetch detected active streamers
+  const refreshStreamers = useCallback(async (tk?: string) => {
+    if (!window.electronAPI?.voiceGetStreamers) return;
+    setLoadingStreamers(true);
+    try {
+      const list = await window.electronAPI.voiceGetStreamers(tk || undefined);
+      if (Array.isArray(list)) setActiveStreamers(list);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingStreamers(false);
+    }
+  }, []);
+
   useEffect(() => {
     refreshVoiceStates();
     if (!window.electronAPI) return;
 
     const offState = window.electronAPI.onVoiceStateUpdate(() => {
       refreshVoiceStates();
+      refreshStreamers(activeWatchingToken || undefined);
     });
     const offVoice = window.electronAPI.onVoiceState(() => {
       refreshVoiceStates();
+      refreshStreamers(activeWatchingToken || undefined);
     });
 
     return () => {
       offState();
       offVoice();
     };
-  }, [refreshVoiceStates]);
+  }, [refreshVoiceStates, refreshStreamers, activeWatchingToken]);
 
   // Target Account Options
   const accountOptions: SelectOption[] = useMemo(() => {
@@ -222,25 +264,136 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
     }
   };
 
+  const handleResolveManualChannel = async () => {
+    const cid = manualChannelId.trim();
+    if (!cid || !effectiveToken) return;
+    setResolvingChannel(true);
+    setManualResolveStatus(null);
+    try {
+      const res = await window.electronAPI?.resolveChannel?.({ token: effectiveToken, channelId: cid });
+      if (res && res.id) {
+        if (res.guild_id) {
+          const foundServer = servers.find(([id]) => id === res.guild_id);
+          onSelectServer(res.guild_id, foundServer ? foundServer[1] : `Guild ${res.guild_id}`);
+        }
+        onSelectChannel(res.id, res.name);
+        setManualResolveStatus({ ok: true, msg: `Resolved: ${res.name}` });
+      } else {
+        setManualResolveStatus({ ok: false, msg: 'Channel not found or token lacks access' });
+      }
+    } catch (e: any) {
+      setManualResolveStatus({ ok: false, msg: e?.message || 'Resolution failed' });
+    } finally {
+      setResolvingChannel(false);
+    }
+  };
+
   const pickTokens = selectedToken && selectedToken !== 'all'
     ? [selectedToken]
     : valid.map((t) => t.token);
 
   const eligibleTokens = pickTokens.filter((tk) => {
+    if (channelMode === 'manual' && !selectedGuildId) return true;
     const t = valid.find((v) => v.token === tk);
     return t?.servers?.some((s) => s.id === selectedGuildId) ?? true;
   });
 
   const handleJoin = () => {
-    if (!selectedGuildId || !selectedChannelId || eligibleTokens.length === 0) return;
+    const targetChannel = channelMode === 'manual' ? manualChannelId.trim() : selectedChannelId;
+    if (!targetChannel || eligibleTokens.length === 0) return;
+
+    const gid = selectedGuildId || 'manual';
+    const gname = selectedGuildName || (selectedGuildId ? selectedGuildId : 'Manual Guild');
+    const cname = selectedChannelName || `Channel ${targetChannel}`;
+
     onJoin(eligibleTokens, {
-      guildId: selectedGuildId,
-      guildName: selectedGuildName || selectedGuildId,
-      channelId: selectedChannelId,
-      channelName: selectedChannelName || selectedChannelId,
+      guildId: gid,
+      guildName: gname,
+      channelId: targetChannel,
+      channelName: cname,
       mute: false,
       deaf: false,
     });
+  };
+
+  // Search server members for stream watching
+  const handleSearchStreamers = async (q: string) => {
+    setStreamerSearchQuery(q);
+    if (!q.trim() || !selectedGuildId || !effectiveToken) {
+      setStreamerSearchResults([]);
+      return;
+    }
+    setIsSearchingMembers(true);
+    try {
+      const res = await window.electronAPI?.searchGuildMembers?.({
+        token: effectiveToken,
+        guildId: selectedGuildId,
+        query: q.trim(),
+      });
+      if (Array.isArray(res)) setStreamerSearchResults(res);
+    } catch {
+      setStreamerSearchResults([]);
+    } finally {
+      setIsSearchingMembers(false);
+    }
+  };
+
+  // Lookup manual Discord User ID
+  const handleLookupManualUser = async (uid: string) => {
+    setManualStreamerId(uid);
+    const clean = uid.trim();
+    if (!clean || clean.length < 17 || !effectiveToken) {
+      setManualUserPreview(null);
+      return;
+    }
+    setIsLoadingUserPreview(true);
+    try {
+      const u = await window.electronAPI?.getUserInfo?.({ token: effectiveToken, userId: clean });
+      if (u) setManualUserPreview(u);
+      else setManualUserPreview(null);
+    } catch {
+      setManualUserPreview(null);
+    } finally {
+      setIsLoadingUserPreview(false);
+    }
+  };
+
+  // Trigger Watch Stream for a target user
+  const handleWatchUserStream = async (targetUserId: string, displayName = '') => {
+    if (!targetUserId) return;
+    const tk = watchAllTokens ? 'all' : activeWatchingToken || Array.from(connected)[0];
+    if (!tk) return;
+
+    setStreamActionMessage(`Connecting stream watcher for ${displayName || targetUserId}...`);
+    try {
+      const res = await window.electronAPI?.voiceWatchStream?.({
+        token: tk,
+        targetUserId: targetUserId.trim(),
+        guildId: selectedGuildId || undefined,
+        channelId: selectedChannelId || undefined,
+      });
+      if (res?.success) {
+        setStreamActionMessage(`✓ Watching live stream of ${displayName || targetUserId}`);
+        refreshVoiceStates();
+      } else {
+        setStreamActionMessage(`Failed to watch stream: ${res?.error || 'Unknown error'}`);
+      }
+    } catch (e: any) {
+      setStreamActionMessage(`Error: ${e?.message || e}`);
+    }
+  };
+
+  // Stop watching stream
+  const handleStopWatchingStream = async () => {
+    const tk = watchAllTokens ? 'all' : activeWatchingToken || Array.from(connected)[0];
+    if (!tk) return;
+    try {
+      await window.electronAPI?.voiceStopWatchingStream?.(tk);
+      setStreamActionMessage('Stopped watching stream');
+      refreshVoiceStates();
+    } catch (e: any) {
+      setStreamActionMessage(`Error: ${e?.message || e}`);
+    }
   };
 
   // Toggle Mute for an active token
@@ -348,504 +501,698 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%', overflowY: 'auto', padding: '16px 20px', boxSizing: 'border-box' }}>
-      {/* Top Config Card */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%' }}>
+      {/* 1. Top Metric Cards (Matches Home) */}
       <div
-        className="card"
         style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 12,
-          padding: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 14,
         }}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-          {/* 1. Target Account */}
-          <div>
-            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
-              1 · Target Account(s)
-            </label>
-            <CustomSelect
-              options={accountOptions}
-              value={selectedToken || 'all'}
-              onChange={handleAccountChange}
-              placeholder="Select account..."
-            />
-          </div>
-
-          {/* 2. Target Server */}
-          <div>
-            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 8 }}>
-              2 · Target Server
-            </label>
-            <CustomSelect
-              options={serverOptions}
-              value={selectedGuildId}
-              onChange={handleServerChange}
-              placeholder="Select a target server..."
-              searchable
-              disabled={servers.length === 0}
-            />
-          </div>
-        </div>
-
-        {/* 3. Voice Channels Selection */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <label style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-              3 · Voice Channel
-            </label>
-            {selectedGuildId && (
-              <button
-                onClick={() => loadChannels(selectedGuildId)}
-                disabled={loadingChannels}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--primary)',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
-                <RefreshCw size={12} className={loadingChannels ? 'spin-anim' : ''} />
-                <span>Refresh Channels</span>
-              </button>
-            )}
-          </div>
-
-          {/* Channel List Container */}
-          <div
-            style={{
-              background: 'var(--bg-main)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: 8,
-              padding: '8px',
-              minHeight: 100,
-              maxHeight: 180,
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            }}
-          >
-            {!selectedGuildId ? (
-              <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                <Server size={22} style={{ opacity: 0.35, marginBottom: 6 }} />
-                <div>Please select a target server above to view and connect to voice channels.</div>
-              </div>
-            ) : loadingChannels ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>
-                <RefreshCw size={16} className="spin-anim" style={{ marginBottom: 6 }} />
-                <div>Fetching voice channels from Discord...</div>
-              </div>
-            ) : channels.length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>
-                No voice channels found for this server or account lacks permissions.
-              </div>
-            ) : (
-              channels.map((c) => {
-                const isSelected = selectedChannelId === c.id;
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => onSelectChannel(c.id, c.name)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 12px',
-                      borderRadius: 6,
-                      background: isSelected ? 'rgba(59, 130, 246, 0.14)' : 'transparent',
-                      color: isSelected ? 'var(--primary)' : 'var(--text-primary)',
-                      border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
-                      cursor: 'pointer',
-                      transition: 'all 0.12s ease',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Volume2 size={15} style={{ color: isSelected ? 'var(--primary)' : 'var(--text-muted)' }} />
-                      <span style={{ fontSize: 13, fontWeight: isSelected ? 700 : 500 }}>{c.name}</span>
-                    </div>
-                    {isSelected && <Check size={14} style={{ color: 'var(--primary)' }} />}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* 4. Connect Action */}
+        {/* Metric 1: Voice Sessions */}
         <div
+          className="card"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderTop: '1px solid var(--border-light)',
-            paddingTop: 16,
-            flexWrap: 'wrap',
-            gap: 12,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
           }}
         >
-          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-            {selectedChannelName ? (
-              <span>
-                Target channel: <strong style={{ color: 'var(--text-primary)' }}>🔊 {selectedChannelName}</strong>
-              </span>
-            ) : (
-              <span>Select a voice channel above to connect</span>
-            )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Voice Engine</span>
+            <Radio size={14} style={{ color: connected.size > 0 ? 'var(--primary)' : 'var(--text-muted)' }} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              className="button-primary"
-              disabled={!selectedGuildId || !selectedChannelId || eligibleTokens.length === 0}
-              onClick={handleJoin}
-              style={{
-                padding: '10px 24px',
-                fontSize: 13,
-                fontWeight: 700,
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                opacity: !selectedGuildId || !selectedChannelId || eligibleTokens.length === 0 ? 0.5 : 1,
-                cursor: !selectedGuildId || !selectedChannelId || eligibleTokens.length === 0 ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <Radio size={15} />
-              <span>Connect {eligibleTokens.length > 1 ? `(${eligibleTokens.length} Accounts)` : ''}</span>
-            </button>
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {connected.size}{' '}
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>active</span>
+          </div>
+
+          <div style={{ fontSize: 11.5, color: connected.size > 0 ? 'var(--primary)' : 'var(--text-secondary)', marginTop: 10 }}>
+            <span>{connected.size > 0 ? 'Connected / Broadcasting' : 'Engine Standby'}</span>
+          </div>
+        </div>
+
+        {/* Metric 2: Available Tokens */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Available Tokens</span>
+            <User size={14} style={{ color: 'var(--text-muted)' }} />
+          </div>
+
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {valid.length}{' '}
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>ready</span>
+          </div>
+
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 10 }}>
+            <span>Valid tokens ready to connect</span>
+          </div>
+        </div>
+
+        {/* Metric 3: Target Server */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Target Server</span>
+            <Server size={14} style={{ color: 'var(--text-muted)' }} />
+          </div>
+
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {selectedGuildName || 'None Selected'}
+          </div>
+
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 10 }}>
+            <span>{servers.length} accessible servers</span>
           </div>
         </div>
       </div>
 
-      {/* Active Connections Section */}
+      {/* 2. Main 2-Column Grid Layout (Space Efficient!) */}
       <div
-        className="card"
         style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 12,
-          padding: '18px 20px',
+          display: 'grid',
+          gridTemplateColumns: '1.2fr 1fr',
+          gap: 16,
+          alignItems: 'start',
           flex: 1,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>Active VC Connections</span>
-              <span
+        {/* Left Column: Connect Configuration Deck */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '18px 20px',
+            boxShadow: 'var(--shadow-card)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          <h2 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Connection Builder
+          </h2>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {/* 1. Target Account */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 6 }}>
+                1 · Target Account(s)
+              </label>
+              <CustomSelect
+                options={accountOptions}
+                value={selectedToken || 'all'}
+                onChange={handleAccountChange}
+                placeholder="Select account..."
+              />
+            </div>
+
+            {/* 2. Target Server */}
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: 6 }}>
+                2 · Target Server
+              </label>
+              <CustomSelect
+                options={serverOptions}
+                value={selectedGuildId}
+                onChange={handleServerChange}
+                placeholder="Select server..."
+                searchable
+                disabled={servers.length === 0}
+              />
+            </div>
+          </div>
+
+          {/* 3. Voice Channels Selection */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+                  3 · Voice Channel
+                </label>
+
+                {/* Mode Toggle: Browse vs Manual */}
+                <div style={{ display: 'inline-flex', background: 'var(--bg-main)', borderRadius: 6, padding: 2, boxShadow: 'var(--shadow-sm)' }}>
+                  <button
+                    onClick={() => setChannelMode('browse')}
+                    style={{
+                      border: 'none',
+                      borderRadius: 4,
+                      padding: '2px 8px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: channelMode === 'browse' ? 'var(--primary)' : 'transparent',
+                      color: channelMode === 'browse' ? '#ffffff' : 'var(--text-muted)',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    Browse
+                  </button>
+                  <button
+                    onClick={() => setChannelMode('manual')}
+                    style={{
+                      border: 'none',
+                      borderRadius: 4,
+                      padding: '2px 8px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: channelMode === 'manual' ? 'var(--primary)' : 'transparent',
+                      color: channelMode === 'manual' ? '#ffffff' : 'var(--text-muted)',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    Manual ID
+                  </button>
+                </div>
+              </div>
+
+              {channelMode === 'browse' && selectedGuildId && (
+                <button
+                  onClick={() => loadChannels(selectedGuildId)}
+                  disabled={loadingChannels}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <RefreshCw size={11} className={loadingChannels ? 'spin-anim' : ''} />
+                  <span>Refresh</span>
+                </button>
+              )}
+            </div>
+
+            {channelMode === 'browse' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {channels.length > 4 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: 'var(--bg-main)',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)',
+                      borderRadius: 6,
+                      padding: '0 8px',
+                      height: 28,
+                    }}
+                  >
+                    <Search size={12} style={{ color: 'var(--text-muted)', marginRight: 6 }} />
+                    <input
+                      type="text"
+                      value={channelFilter}
+                      onChange={(e) => setChannelFilter(e.target.value)}
+                      placeholder="Filter voice channels..."
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        fontSize: 11.5,
+                        color: 'var(--text-primary)',
+                        outline: 'none',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Channel List Container */}
+                <div
+                  style={{
+                    background: 'var(--bg-main)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 6,
+                    padding: '6px',
+                    minHeight: 90,
+                    maxHeight: 160,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 3,
+                  }}
+                >
+                  {!selectedGuildId ? (
+                    <div style={{ padding: '20px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                      <Server size={18} style={{ opacity: 0.35, marginBottom: 4 }} />
+                      <div>Select a target server above to browse voice channels.</div>
+                    </div>
+                  ) : loadingChannels ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                      <RefreshCw size={14} className="spin-anim" style={{ marginBottom: 4 }} />
+                      <div>Fetching voice channels...</div>
+                    </div>
+                  ) : channels.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                      No voice channels found for this server.
+                    </div>
+                  ) : (
+                    channels
+                      .filter((c) => !channelFilter.trim() || c.name.toLowerCase().includes(channelFilter.toLowerCase()) || c.id.includes(channelFilter.trim()))
+                      .map((c) => {
+                        const isSelected = selectedChannelId === c.id;
+                        return (
+                          <div
+                            key={c.id}
+                            onClick={() => onSelectChannel(c.id, c.name)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '6px 10px',
+                              borderRadius: 4,
+                              background: isSelected ? 'rgba(88, 101, 242, 0.12)' : 'transparent',
+                              color: isSelected ? 'var(--primary)' : 'var(--text-primary)',
+                              cursor: 'pointer',
+                              transition: 'all 0.1s ease',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Volume2 size={13} style={{ color: isSelected ? 'var(--primary)' : 'var(--text-muted)' }} />
+                              <span style={{ fontSize: 12, fontWeight: isSelected ? 700 : 500 }}>{c.name}</span>
+                              <span style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: 'monospace' }}>({c.id})</span>
+                            </div>
+                            {isSelected && <Check size={13} style={{ color: 'var(--primary)' }} />}
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Manual Channel ID Mode */
+              <div
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '1px 7px',
-                  borderRadius: 10,
-                  background: connected.size > 0 ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-card-hover)',
-                  color: connected.size > 0 ? 'var(--primary)' : 'var(--text-muted)',
+                  background: 'var(--bg-main)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 6,
+                  padding: '10px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
                 }}
               >
-                {connected.size}
-              </span>
-            </h3>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={manualChannelId}
+                    onChange={(e) => {
+                      setManualChannelId(e.target.value);
+                      setManualResolveStatus(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleResolveManualChannel();
+                    }}
+                    placeholder="Enter Voice Channel ID..."
+                    style={{
+                      flex: 1,
+                      padding: '6px 10px',
+                      background: 'var(--bg-card)',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)',
+                      borderRadius: 4,
+                      fontSize: 12,
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      fontFamily: 'monospace',
+                    }}
+                  />
 
-            {/* Quick Bulk Action Buttons */}
-            {connected.size > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 6 }}>
-                <button
-                  onClick={() => handleMuteAll(true)}
-                  style={{
-                    background: 'var(--bg-main)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: 6,
-                    padding: '3px 8px',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                  title="Mute all connected tokens"
-                >
-                  <MicOff size={12} />
-                  <span>Mute All</span>
-                </button>
+                  <button
+                    onClick={handleResolveManualChannel}
+                    disabled={!manualChannelId.trim() || resolvingChannel || !effectiveToken}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 4,
+                      background: 'var(--bg-card)',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)',
+                      color: 'var(--primary)',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: !manualChannelId.trim() || resolvingChannel ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <RefreshCw size={11} className={resolvingChannel ? 'spin-anim' : ''} />
+                    <span>Resolve</span>
+                  </button>
+                </div>
 
-                <button
-                  onClick={() => handleDeafenAll(true)}
-                  style={{
-                    background: 'var(--bg-main)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: 6,
-                    padding: '3px 8px',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                  title="Deafen all connected tokens"
-                >
-                  <VolumeX size={12} />
-                  <span>Deaf All</span>
-                </button>
-
-                <button
-                  onClick={() => handleOpenScreenShareModal()}
-                  style={{
-                    background: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: 6,
-                    padding: '3px 8px',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'var(--primary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                  title="Share screen into the voice channel"
-                >
-                  <Monitor size={12} />
-                  <span>Share Screen</span>
-                </button>
+                {manualResolveStatus && (
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      color: manualResolveStatus.ok ? '#10b981' : 'var(--danger)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    {manualResolveStatus.ok ? <Check size={12} /> : <X size={12} />}
+                    <span>{manualResolveStatus.msg}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {connected.size > 0 && (
+          {/* 4. Connect Action */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderTop: '1px solid var(--border-light)',
+              paddingTop: 12,
+              marginTop: 4,
+              flexWrap: 'wrap',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+              {(channelMode === 'manual' ? manualChannelId.trim() : selectedChannelName) ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  Target:
+                  <strong style={{ color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <Volume2 size={12} style={{ color: 'var(--primary)' }} />
+                    {channelMode === 'manual' ? (selectedChannelName || `ID: ${manualChannelId.trim()}`) : selectedChannelName}
+                  </strong>
+                </span>
+              ) : (
+                <span>Choose channel above</span>
+              )}
+            </div>
+
             <button
-              onClick={() => onLeave('')}
+              className="button-primary"
+              disabled={
+                channelMode === 'browse'
+                  ? !selectedGuildId || !selectedChannelId || eligibleTokens.length === 0
+                  : !manualChannelId.trim() || eligibleTokens.length === 0
+              }
+              onClick={handleJoin}
               style={{
-                background: 'rgba(239, 68, 68, 0.14)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 6,
-                padding: '5px 12px',
-                color: 'var(--danger)',
-                fontSize: 12,
+                padding: '8px 18px',
+                fontSize: 12.5,
                 fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
+                borderRadius: 6,
+                display: 'flex',
                 alignItems: 'center',
                 gap: 6,
+                boxShadow: '0 2px 8px var(--primary-glow)',
+                opacity:
+                  (channelMode === 'browse' ? !selectedGuildId || !selectedChannelId : !manualChannelId.trim()) ||
+                  eligibleTokens.length === 0
+                    ? 0.5
+                    : 1,
+                cursor:
+                  (channelMode === 'browse' ? !selectedGuildId || !selectedChannelId : !manualChannelId.trim()) ||
+                  eligibleTokens.length === 0
+                    ? 'not-allowed'
+                    : 'pointer',
               }}
-              title="Force disconnect and recall all tokens from any voice channels"
             >
-              <LogOut size={13} />
-              <span>Recall All Tokens</span>
+              <Radio size={14} />
+              <span>Connect {eligibleTokens.length > 1 ? `(${eligibleTokens.length} Accounts)` : ''}</span>
             </button>
-          )}
+          </div>
         </div>
 
-        {connected.size === 0 ? (
-          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            <Radio size={28} style={{ opacity: 0.35, marginBottom: 8 }} />
-            <p style={{ margin: 0 }}>No active voice connections. Select a target server and voice channel above to connect.</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {Array.from(connected).map((tk) => {
-              const account = tokens.find((t) => t.token === tk);
-              const name = account ? displayName(account) : `${tk.slice(0, 10)}...`;
-              const state = voiceStates[tk] || { mute: false, deaf: false, isStreaming: false };
-
-              return (
-                <div
-                  key={tk}
+        {/* Right Column: Active Connections & Recents Deck */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Active Connections Card */}
+          <div
+            className="card"
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-panel)',
+              borderRadius: 10,
+              padding: '18px 20px',
+              boxShadow: 'var(--shadow-card)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Active VC Sessions
+                </h3>
+                <span
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    background: 'var(--bg-main)',
-                    border: '1px solid var(--border-light)',
-                    flexWrap: 'wrap',
-                    gap: 10,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    background: connected.size > 0 ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-main)',
+                    color: connected.size > 0 ? 'var(--success)' : 'var(--text-muted)',
                   }}
                 >
-                  {/* Account Name and Status Indicators */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{name}</span>
-                        {state.isStreaming && (
-                          <span
-                            style={{
-                              fontSize: 9.5,
-                              fontWeight: 800,
-                              padding: '1px 5px',
-                              borderRadius: 4,
-                              background: '#ef4444',
-                              color: '#ffffff',
-                              letterSpacing: '0.04em',
-                            }}
-                          >
-                            LIVE
-                          </span>
-                        )}
-                        {state.mute && (
-                          <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)' }}>
-                            MUTED
-                          </span>
-                        )}
-                        {state.deaf && (
-                          <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(234, 179, 8, 0.15)', color: 'var(--warning)' }}>
-                            DEAF
-                          </span>
-                        )}
-                      </div>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{tk.slice(0, 16)}...</span>
-                    </div>
-                  </div>
+                  {connected.size}
+                </span>
+              </div>
 
-                  {/* Interactive Dynamic Action Controls per Token */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {/* Mute Toggle Button */}
-                    <button
-                      onClick={() => handleToggleTokenMute(tk)}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        border: '1px solid var(--border-medium)',
-                        background: state.mute ? 'rgba(239, 68, 68, 0.14)' : 'var(--bg-card)',
-                        color: state.mute ? 'var(--danger)' : 'var(--text-primary)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                      title={state.mute ? 'Unmute microphone on Discord' : 'Mute microphone on Discord'}
-                    >
-                      {state.mute ? <MicOff size={14} style={{ color: 'var(--danger)' }} /> : <Mic size={14} />}
-                      <span>{state.mute ? 'Unmute' : 'Mute'}</span>
-                    </button>
+              {/* Quick Bulk Action Buttons */}
+              {connected.size > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button
+                    onClick={() => handleMuteAll(true)}
+                    style={{
+                      background: 'var(--bg-main)',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)',
+                      borderRadius: 4,
+                      padding: '3px 7px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                    }}
+                    title="Mute all"
+                  >
+                    <MicOff size={11} />
+                    <span>Mute</span>
+                  </button>
 
-                    {/* Deafen Toggle Button */}
-                    <button
-                      onClick={() => handleToggleTokenDeaf(tk)}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        border: '1px solid var(--border-medium)',
-                        background: state.deaf ? 'rgba(234, 179, 8, 0.14)' : 'var(--bg-card)',
-                        color: state.deaf ? 'var(--warning)' : 'var(--text-primary)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                      title={state.deaf ? 'Undeafen audio on Discord' : 'Deafen audio on Discord'}
-                    >
-                      {state.deaf ? <VolumeX size={14} style={{ color: 'var(--warning)' }} /> : <Volume2 size={14} />}
-                      <span>{state.deaf ? 'Undeafen' : 'Deafen'}</span>
-                    </button>
+                  <button
+                    onClick={() => handleDeafenAll(true)}
+                    style={{
+                      background: 'var(--bg-main)',
+                      border: 'none',
+                      boxShadow: 'var(--shadow-sm)',
+                      borderRadius: 4,
+                      padding: '3px 7px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                    }}
+                    title="Deafen all"
+                  >
+                    <VolumeX size={11} />
+                    <span>Deaf</span>
+                  </button>
 
-                    {/* Screen Share / Go Live Button */}
-                    {state.isStreaming ? (
-                      <button
-                        onClick={() => handleStopScreenshare(tk)}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: 6,
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          background: 'rgba(239, 68, 68, 0.15)',
-                          color: 'var(--danger)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontSize: 12,
-                          fontWeight: 600,
-                        }}
-                        title="Stop sharing screen"
-                      >
-                        <Square size={13} />
-                        <span>Stop Stream</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleOpenScreenShareModal(tk)}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: 6,
-                          border: '1px solid var(--border-medium)',
-                          background: 'var(--bg-card)',
-                          color: 'var(--primary)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontSize: 12,
-                          fontWeight: 600,
-                        }}
-                        title="Share your screen or a specific window in the voice channel"
-                      >
-                        <Monitor size={14} />
-                        <span>Share Screen</span>
-                      </button>
-                    )}
-
-                    {/* Watch Stream Button */}
-                    <button
-                      onClick={() => handleOpenStreamViewer(tk)}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        border: '1px solid var(--border-medium)',
-                        background: 'var(--bg-card)',
-                        color: 'var(--text-secondary)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                      title="Open stream viewer to watch channel broadcasts"
-                    >
-                      <Eye size={14} />
-                      <span>Watch</span>
-                    </button>
-
-                    {/* Leave Button */}
-                    <button
-                      onClick={() => onLeave(tk)}
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.12)',
-                        border: '1px solid rgba(239, 68, 68, 0.25)',
-                        borderRadius: 6,
-                        padding: '6px 12px',
-                        color: 'var(--danger)',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Leave
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleOpenScreenShareModal()}
+                    style={{
+                      background: 'rgba(88, 101, 242, 0.12)',
+                      border: 'none',
+                      borderRadius: 4,
+                      padding: '3px 7px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'var(--primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                    }}
+                    title="Share screen"
+                  >
+                    <Monitor size={11} />
+                    <span>Stream</span>
+                  </button>
                 </div>
-              );
-            })}
+              )}
+            </div>
+
+            {connected.size === 0 ? (
+              <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                <Radio size={22} style={{ opacity: 0.35, marginBottom: 6 }} />
+                <p style={{ margin: 0 }}>No active voice sessions. Configure and connect on the left to start streaming.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '280px', overflowY: 'auto' }}>
+                {Array.from(connected).map((tk) => {
+                  const account = tokens.find((t) => t.token === tk);
+                  const name = account ? displayName(account) : `${tk.slice(0, 10)}...`;
+                  const state = voiceStates[tk] || { mute: false, deaf: false, isStreaming: false };
+
+                  return (
+                    <div
+                      key={tk}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        background: 'var(--bg-main)',
+                        border: '1px solid var(--border-light)',
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {name}
+                          </div>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                            {tk.slice(0, 12)}…
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        <button
+                          onClick={() => handleToggleTokenMute(tk)}
+                          style={{
+                            padding: '3px 6px',
+                            borderRadius: 4,
+                            border: 'none',
+                            background: state.mute ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
+                            boxShadow: 'var(--shadow-sm)',
+                            color: state.mute ? 'var(--danger)' : 'var(--text-primary)',
+                            cursor: 'pointer',
+                          }}
+                          title={state.mute ? 'Unmute' : 'Mute'}
+                        >
+                          {state.mute ? <MicOff size={12} /> : <Mic size={12} />}
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleTokenDeaf(tk)}
+                          style={{
+                            padding: '3px 6px',
+                            borderRadius: 4,
+                            border: 'none',
+                            background: state.deaf ? 'rgba(245, 158, 11, 0.15)' : 'var(--bg-card)',
+                            boxShadow: 'var(--shadow-sm)',
+                            color: state.deaf ? 'var(--warning)' : 'var(--text-primary)',
+                            cursor: 'pointer',
+                          }}
+                          title={state.deaf ? 'Undeafen' : 'Deafen'}
+                        >
+                          {state.deaf ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                        </button>
+
+                        <button
+                          onClick={() => onLeave(tk)}
+                          style={{
+                            padding: '3px 6px',
+                            borderRadius: 4,
+                            border: 'none',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: 'var(--danger)',
+                            cursor: 'pointer',
+                          }}
+                          title="Disconnect"
+                        >
+                          <LogOut size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Quick Recent Channels Card */}
+          {recents.length > 0 && (
+            <div
+              className="card"
+              style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-panel)',
+                borderRadius: 10,
+                padding: '16px 18px',
+                boxShadow: 'var(--shadow-card)',
+              }}
+            >
+              <h3 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 10px 0', color: 'var(--text-primary)' }}>
+                Recent Voice Channels
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {recents.slice(0, 3).map((r, i) => (
+                  <div
+                    key={i}
+                    onClick={() => onJoinRecent(r)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      background: 'var(--bg-main)',
+                      cursor: 'pointer',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <Volume2 size={12} style={{ color: 'var(--primary)' }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {r.channel_name || r.channel_id}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>in {r.guild_name}</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--primary)' }}>Join →</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ========================================================= */}
@@ -900,7 +1247,7 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
                     width: 36,
                     height: 36,
                     borderRadius: 10,
-                    background: 'rgba(59, 130, 246, 0.15)',
+                    background: 'rgba(88, 101, 242, 0.15)',
                     color: 'var(--primary)',
                     display: 'flex',
                     alignItems: 'center',
@@ -996,7 +1343,7 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
                           display: 'flex',
                           flexDirection: 'column',
                           transition: 'all 0.15s ease',
-                          boxShadow: isSelected ? '0 0 12px rgba(59, 130, 246, 0.3)' : 'none',
+                          boxShadow: isSelected ? '0 0 12px rgba(88, 101, 242, 0.3)' : 'none',
                         }}
                       >
                         <div style={{ position: 'relative', width: '100%', height: 110, background: '#000000', overflow: 'hidden' }}>
@@ -1102,7 +1449,7 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* WATCH STREAM VIEWER MODAL                                 */}
+      {/* WATCH STREAM VIEWER & SELECTOR MODAL                       */}
       {/* ========================================================= */}
       {streamViewerOpen && (
         <div
@@ -1126,9 +1473,9 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
             className="card fade-in"
             style={{
               width: isFullscreen ? '100vw' : '100%',
-              maxWidth: isFullscreen ? '100vw' : 880,
+              maxWidth: isFullscreen ? '100vw' : 920,
               height: isFullscreen ? '100vh' : 'auto',
-              maxHeight: isFullscreen ? '100vh' : '88vh',
+              maxHeight: isFullscreen ? '100vh' : '90vh',
               background: '#09090b',
               border: isFullscreen ? 'none' : '1px solid var(--border-medium)',
               borderRadius: isFullscreen ? 0 : 16,
@@ -1144,26 +1491,30 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '12px 18px',
+                padding: '14px 20px',
                 background: 'rgba(24, 24, 27, 0.95)',
                 borderBottom: '1px solid rgba(255,255,255,0.08)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: '#f4f4f5' }}>
-                  Live Channel Stream
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                <span style={{ fontSize: 14.5, fontWeight: 700, color: '#f4f4f5' }}>
+                  Watch Live Stream
                 </span>
                 <span
                   style={{
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                    padding: '2px 7px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: '2px 8px',
                     borderRadius: 4,
-                    background: 'rgba(59, 130, 246, 0.2)',
+                    background: 'rgba(88, 101, 242, 0.2)',
                     color: '#60a5fa',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
                   }}
                 >
+                  <Volume2 size={12} />
                   {selectedChannelName || 'Voice Channel'}
                 </span>
               </div>
@@ -1184,7 +1535,10 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
                   {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                 </button>
                 <button
-                  onClick={() => setStreamViewerOpen(false)}
+                  onClick={() => {
+                    setStreamViewerOpen(false);
+                    setStreamActionMessage(null);
+                  }}
                   style={{
                     background: 'transparent',
                     border: 'none',
@@ -1199,59 +1553,384 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
               </div>
             </div>
 
-            {/* Video Player Display Screen */}
-            <div
-              style={{
-                position: 'relative',
-                flex: 1,
-                minHeight: 380,
-                background: '#000000',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-              }}
-            >
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              />
+            {/* Viewer Body: Streamer Selector & Live Player */}
+            <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Active Watch Banner (If currently watching someone) */}
+              {(() => {
+                const currentWatchingState = voiceStates[activeWatchingToken];
+                const isWatchingActive = currentWatchingState?.isWatching && currentWatchingState?.watchingUserId;
+                if (!isWatchingActive) return null;
 
-              {/* Stream Overlay Info / Placeholder */}
+                return (
+                  <div
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: 10,
+                      padding: '12px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#f4f4f5' }}>
+                          Currently Watching Stream: <span style={{ color: '#10b981' }}>{currentWatchingState.watchingUserId}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#a1a1aa', fontFamily: 'monospace' }}>
+                          {currentWatchingState.watchingStreamKey || 'Stream Key Active'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleStopWatchingStream}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 6,
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        color: 'var(--danger)',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Stop Watching Stream
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Multi-Token Watch Option */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: '#e4e4e7' }}>
+                  <input
+                    type="checkbox"
+                    checked={watchAllTokens}
+                    onChange={(e) => setWatchAllTokens(e.target.checked)}
+                    style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                  />
+                  <span>Watch with all connected tokens ({connected.size} tokens)</span>
+                </label>
+
+                {streamActionMessage && (
+                  <span style={{ fontSize: 12, color: streamActionMessage.startsWith('✓') ? '#10b981' : '#60a5fa' }}>
+                    {streamActionMessage}
+                  </span>
+                )}
+              </div>
+
+              {/* Section 1: Active Streamers in this Channel */}
+              <div style={{ background: '#121215', border: '1px solid #27272a', borderRadius: 10, padding: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#a1a1aa' }}>
+                    Active Streamers in Voice Channel ({activeStreamers.length})
+                  </div>
+                  <button
+                    onClick={() => refreshStreamers(activeWatchingToken)}
+                    disabled={loadingStreamers}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: 11.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <RefreshCw size={11} className={loadingStreamers ? 'spin-anim' : ''} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+
+                {activeStreamers.length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#71717a', fontSize: 12.5 }}>
+                    No automated live screen-shares detected yet. You can search or type any user ID below to watch their stream.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+                    {activeStreamers.map((s) => (
+                      <div
+                        key={s.userId}
+                        style={{
+                          background: '#18181b',
+                          border: '1px solid #3f3f46',
+                          borderRadius: 8,
+                          padding: '10px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <img
+                            src={s.avatarUrl}
+                            alt=""
+                            style={{ width: 32, height: 32, borderRadius: '50%', background: '#27272a', flexShrink: 0 }}
+                          />
+                          <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#f4f4f5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {s.globalName}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#a1a1aa', fontFamily: 'monospace' }}>
+                              @{s.username}
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleWatchUserStream(s.userId, s.globalName)}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: 6,
+                            background: 'var(--primary)',
+                            border: 'none',
+                            color: '#ffffff',
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                          }}
+                        >
+                          Watch
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Section 2: Search Member or Enter User ID */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+                {/* Search by Name */}
+                <div style={{ background: '#121215', border: '1px solid #27272a', borderRadius: 10, padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#a1a1aa', marginBottom: 8 }}>
+                    Search Member by Name
+                  </div>
+
+                  <div style={{ position: 'relative', marginBottom: 10 }}>
+                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} />
+                    <input
+                      type="text"
+                      value={streamerSearchQuery}
+                      onChange={(e) => handleSearchStreamers(e.target.value)}
+                      placeholder="Type member username or nickname..."
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px 8px 32px',
+                        background: '#18181b',
+                        border: '1px solid #3f3f46',
+                        borderRadius: 6,
+                        fontSize: 12.5,
+                        color: '#f4f4f5',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  {/* Search Results List */}
+                  <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {isSearchingMembers ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#71717a', fontSize: 12 }}>
+                        Searching guild members...
+                      </div>
+                    ) : streamerSearchResults.length === 0 ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#52525b', fontSize: 11.5 }}>
+                        {streamerSearchQuery ? 'No members found matching search' : 'Type a username to search'}
+                      </div>
+                    ) : (
+                      streamerSearchResults.map((m) => (
+                        <div
+                          key={m.userId}
+                          style={{
+                            background: '#18181b',
+                            border: '1px solid #27272a',
+                            borderRadius: 6,
+                            padding: '6px 10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 8,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <img src={m.avatarUrl} alt="" style={{ width: 26, height: 26, borderRadius: '50%', background: '#27272a' }} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#f4f4f5', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {m.globalName}
+                              </div>
+                              <div style={{ fontSize: 10.5, color: '#a1a1aa' }}>@{m.username} · {m.userId}</div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleWatchUserStream(m.userId, m.globalName)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: 5,
+                              background: 'var(--primary)',
+                              border: 'none',
+                              color: '#ffffff',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                            }}
+                          >
+                            Watch
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Direct User ID Input */}
+                <div style={{ background: '#121215', border: '1px solid #27272a', borderRadius: 10, padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#a1a1aa', marginBottom: 8 }}>
+                    Enter Discord User ID
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                    <input
+                      type="text"
+                      value={manualStreamerId}
+                      onChange={(e) => handleLookupManualUser(e.target.value)}
+                      placeholder="Paste 17-20 digit User ID..."
+                      style={{
+                        flex: 1,
+                        padding: '8px 10px',
+                        background: '#18181b',
+                        border: '1px solid #3f3f46',
+                        borderRadius: 6,
+                        fontSize: 12.5,
+                        color: '#f4f4f5',
+                        outline: 'none',
+                        fontFamily: 'monospace',
+                      }}
+                    />
+                    <button
+                      onClick={() => handleWatchUserStream(manualStreamerId.trim())}
+                      disabled={!manualStreamerId.trim()}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: 6,
+                        background: 'var(--primary)',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: !manualStreamerId.trim() ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Watch Stream
+                    </button>
+                  </div>
+
+                  {/* Manual User Preview Card */}
+                  {isLoadingUserPreview ? (
+                    <div style={{ padding: '10px', textAlign: 'center', color: '#71717a', fontSize: 12 }}>
+                      Fetching user info from Discord...
+                    </div>
+                  ) : manualUserPreview ? (
+                    <div
+                      style={{
+                        background: '#18181b',
+                        border: '1px solid rgba(88, 101, 242, 0.3)',
+                        borderRadius: 8,
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <img src={manualUserPreview.avatarUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                        <div>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#f4f4f5' }}>{manualUserPreview.globalName}</div>
+                          <div style={{ fontSize: 11, color: '#a1a1aa' }}>@{manualUserPreview.username}</div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleWatchUserStream(manualUserPreview.userId, manualUserPreview.globalName)}
+                        style={{
+                          padding: '4px 12px',
+                          borderRadius: 5,
+                          background: 'var(--primary)',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: 11.5,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Watch Now
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11.5, color: '#71717a' }}>
+                      Enter any Discord User ID (e.g. 1110487346194948198) to watch their voice channel broadcast directly.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Video Player Display Screen */}
               <div
                 style={{
-                  position: 'absolute',
+                  position: 'relative',
+                  minHeight: 220,
+                  background: '#000000',
+                  borderRadius: 10,
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 12,
-                  color: '#71717a',
-                  textAlign: 'center',
-                  padding: 24,
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  border: '1px solid #27272a',
                 }}
               >
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+
+                {/* Stream Overlay Info */}
                 <div
                   style={{
-                    width: 54,
-                    height: 54,
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.06)',
+                    position: 'absolute',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#a1a1aa',
+                    gap: 8,
+                    color: '#71717a',
+                    textAlign: 'center',
+                    padding: 16,
                   }}
                 >
-                  <Tv size={26} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#e4e4e7', marginBottom: 4 }}>
-                    Connected to Discord Voice Stream
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.06)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#a1a1aa',
+                    }}
+                  >
+                    <Tv size={22} />
                   </div>
-                  <div style={{ fontSize: 12, color: '#a1a1aa' }}>
-                    Receiving WebRTC video frames from active streamers in {selectedChannelName || 'this channel'}
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#e4e4e7', marginBottom: 2 }}>
+                      Discord Gateway Stream Watcher
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#a1a1aa' }}>
+                      Token stream gateway registered for {selectedChannelName || 'Voice Channel'}.
+                    </div>
                   </div>
                 </div>
               </div>

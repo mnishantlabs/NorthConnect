@@ -9,6 +9,15 @@ export interface ValidationResult {
   [key: string]: any;
 }
 
+function decodeSnowflake(token: string): string {
+  try {
+    const p1 = token.split(".")[0];
+    const raw = Buffer.from(p1, "base64").toString("ascii");
+    if (/^\d{17,20}$/.test(raw)) return raw;
+  } catch {}
+  return "";
+}
+
 export class ValidationService {
   private concurrency: number;
 
@@ -22,7 +31,7 @@ export class ValidationService {
     this.concurrency = Math.max(concurrency, 1);
   }
 
-  /** Import: validate candidates and persist valid AND invalid entries. */
+  /** Import: validate candidates and persist valid AND invalid entries with metadata. */
   async runImport(tokens: string[]): Promise<number> {
     const prev = new Set(Object.keys(this.repo.get_all()));
     let index = 0;
@@ -32,14 +41,30 @@ export class ValidationService {
         const res = await this.callMe(token);
         if (res.valid) {
           this.repo.add_token(token, res);
-          this.log.success(`${res.username} valid`);
+          this.log.success(`${res.global_name || res.username} valid`);
         } else {
+          const existing = this.repo.get(token) || {};
+          const fallbackUserId = existing.user_id || decodeSnowflake(token);
+          let fallbackAvatarUrl = existing.avatar_url;
+          if (!fallbackAvatarUrl && fallbackUserId) {
+            try {
+              const idx = Number((BigInt(fallbackUserId) >> 22n) % 6n);
+              fallbackAvatarUrl = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+            } catch {}
+          }
+
           this.repo.add_token(token, {
-            user_id: "",
-            error: res.error ?? "",
-            code: res.code ?? "",
+            ...existing,
+            username: existing.username || (fallbackUserId ? `User ${fallbackUserId.slice(-4)}` : "Unknown Account"),
+            global_name: existing.global_name ?? null,
+            user_id: fallbackUserId,
+            avatar: existing.avatar ?? null,
+            avatar_url: fallbackAvatarUrl ?? null,
+            valid: false,
+            error: res.error ?? "Invalid token",
+            code: res.code ?? "INVALID",
           });
-          this.log.error(`${token.slice(0, 8)}…: ${res.error ?? "?"}`);
+          this.log.error(`${token.slice(0, 8)}…: ${res.error ?? "Invalid token"}`);
         }
         this.onProgress?.(token, Boolean(res.valid), !prev.has(token));
       }
@@ -69,14 +94,29 @@ export class ValidationService {
     const res = await this.callMe(token);
     if (res.valid) {
       this.repo.add_token(token, res);
-      this.log.success(`${res.username} valid`);
+      this.log.success(`${res.global_name || res.username} valid`);
     } else {
+      const existing = this.repo.get(token) || {};
+      const fallbackUserId = existing.user_id || decodeSnowflake(token);
+      let fallbackAvatarUrl = existing.avatar_url;
+      if (!fallbackAvatarUrl && fallbackUserId) {
+        try {
+          const idx = Number((BigInt(fallbackUserId) >> 22n) % 6n);
+          fallbackAvatarUrl = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+        } catch {}
+      }
+
       this.repo.update(token, {
-        user_id: "",
-        error: res.error ?? "",
-        code: res.code ?? "",
+        username: existing.username || (fallbackUserId ? `User ${fallbackUserId.slice(-4)}` : "Unknown Account"),
+        global_name: existing.global_name ?? null,
+        user_id: fallbackUserId,
+        avatar: existing.avatar ?? null,
+        avatar_url: fallbackAvatarUrl ?? null,
+        valid: false,
+        error: res.error ?? "Invalid token",
+        code: res.code ?? "INVALID",
       });
-      this.log.error(`${token.slice(0, 8)}…: ${res.error ?? "?"}`);
+      this.log.error(`${token.slice(0, 8)}…: ${res.error ?? "Invalid token"}`);
     }
     this.onProgress?.(token, Boolean(res.valid));
   }
@@ -95,11 +135,26 @@ export class ValidationService {
       const data = await resp.json();
       const servers = await this.fetchServers(token);
       const flagsInt = Number(data.flags ?? 0) || 0;
+      const userId = String(data.id ?? decodeSnowflake(token));
+      const avatarHash = data.avatar ?? null;
+      let avatarUrl = avatarHash
+        ? `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png?size=128`
+        : null;
+      if (!avatarUrl && userId) {
+        try {
+          const idx = Number((BigInt(userId) >> 22n) % 6n);
+          avatarUrl = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+        } catch {
+          avatarUrl = `https://cdn.discordapp.com/embed/avatars/0.png`;
+        }
+      }
+
       return {
         valid: true,
         username: data.username ?? "Unknown",
+        global_name: data.global_name ?? data.display_name ?? null,
         discriminator: data.discriminator ?? "0",
-        user_id: String(data.id ?? ""),
+        user_id: userId,
         email: data.email ?? null,
         phone: data.phone ?? null,
         mfa_enabled: Boolean(data.mfa_enabled ?? false),
@@ -109,9 +164,12 @@ export class ValidationService {
         flags: Object.entries(FLAG_NAMES)
           .filter(([bit]) => flagsInt & Number(bit))
           .map(([, name]) => name),
-        avatar: data.avatar ?? null,
+        avatar: avatarHash,
+        avatar_url: avatarUrl,
         banner: data.banner ?? null,
         servers,
+        error: "",
+        code: "",
       };
     }
     if (resp.status === 401) return { valid: false, error: "Invalid or expired token", code: "INVALID" };

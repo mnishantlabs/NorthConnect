@@ -14,9 +14,16 @@ import {
   SortAsc,
   SortDesc,
   Check,
+  KeyRound,
+  AlertCircle,
+  X,
+  Server,
+  ShieldCheck,
+  CheckCircle2,
+  Filter,
 } from 'lucide-react';
-import type { Token } from '../../../shared/types';
-import { categorize, matchSearch, passFilters, status, displayName } from '../../../shared/predicates';
+import type { Token } from '@shared/types';
+import { categorize, matchSearch, passFilters, status, displayName } from '@shared/predicates';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { CustomSelect, type SelectOption } from './CustomSelect';
 
@@ -51,12 +58,16 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
   onJoinVoice,
 }) => {
   const [filter, setFilter] = useState<ViewFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [sort, setSort] = useState<SortMode>('Server Count');
   const [sortDesc, setSortDesc] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [menu, setMenu] = useState<{ x: number; y: number; token: Token } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [replacingToken, setReplacingToken] = useState<Token | null>(null);
+  const [newTokenInput, setNewTokenInput] = useState('');
+  const [isReplacing, setIsReplacing] = useState(false);
   const [justCopied, setJustCopied] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
 
@@ -66,17 +77,36 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
     return c;
   }, [tokens]);
 
+  const validPct = tokens.length > 0 ? Math.round((counts.valid / tokens.length) * 100) : 0;
+
+  const serverCount = useMemo(() => {
+    const ids = new Set<string>();
+    for (const t of tokens) for (const s of t.servers ?? []) ids.add(s.id);
+    return ids.size;
+  }, [tokens]);
+
   const rows = useMemo(() => {
-    const list = tokens.filter((t) => passFilters(t, filter));
+    let list = tokens.filter((t) => passFilters(t, filter));
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter((t) => {
+        const name = displayName(t).toLowerCase();
+        const id = (t.user_id ?? '').toLowerCase();
+        const tk = t.token.toLowerCase();
+        const em = (t.email ?? '').toLowerCase();
+        return name.includes(q) || id.includes(q) || tk.includes(q) || em.includes(q);
+      });
+    }
+
     list.sort((a, b) => {
       let r = 0;
       if (sort === 'Server Count') r = (a.servers?.length ?? 0) - (b.servers?.length ?? 0);
-      else if (sort === 'Name') r = a.username.localeCompare(b.username);
+      else if (sort === 'Name') r = (a.global_name || a.username).localeCompare(b.global_name || b.username);
       else r = a.user_id.localeCompare(b.user_id);
       return sortDesc ? -r : r;
     });
     return list;
-  }, [tokens, filter, sort, sortDesc]);
+  }, [tokens, filter, searchQuery, sort, sortDesc]);
 
   const copy = (text: string, key: string) => {
     navigator.clipboard?.writeText(text).catch(() => {});
@@ -106,6 +136,21 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
     }
   };
 
+  const handleConfirmReplace = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!replacingToken || !newTokenInput.trim() || !window.electronAPI) return;
+    setIsReplacing(true);
+    try {
+      await window.electronAPI.replaceToken(replacingToken.token, newTokenInput.trim());
+      setReplacingToken(null);
+      setNewTokenInput('');
+    } catch (err) {
+      console.error('Failed to replace token:', err);
+    } finally {
+      setIsReplacing(false);
+    }
+  };
+
   const selectedArr = tokens.filter((t) => selected.has(t.token));
 
   const menuItems = (t: Token): MenuItem[] => [
@@ -114,6 +159,14 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
       icon: <RotateCcw size={14} />,
       onClick: () => onRequestValidate([t]),
       disabled: validating,
+    },
+    {
+      label: 'Replace token',
+      icon: <KeyRound size={14} />,
+      onClick: () => {
+        setReplacingToken(t);
+        setNewTokenInput('');
+      },
     },
     {
       label: 'Copy token',
@@ -138,14 +191,14 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
       icon: <User size={14} />,
       onClick: () => {
         setRenaming(t.token);
-        setRenameValue(t.username === 'Unknown' ? '' : t.username);
+        setRenameValue(t.global_name || (t.username === 'Unknown' ? '' : t.username));
       },
     },
     {
       label: 'Join voice',
       icon: <Mic size={14} />,
       onClick: () => onJoinVoice(t.token),
-      disabled: !t.user_id,
+      disabled: !t.user_id || status(t) !== 'valid',
     },
     { divider: true },
     {
@@ -165,6 +218,7 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
     const s = status(t);
     const out: React.ReactNode[] = [];
     if (s === 'locked') out.push(<span key="locked" className="nc-badge locked"><ShieldAlert size={10} /> Locked</span>);
+    else if (s === 'invalid') out.push(<span key="invalid" className="nc-badge" style={{ background: 'rgba(239, 68, 68, 0.12)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.25)' }}><AlertCircle size={10} /> Invalid Token</span>);
     if (cat === 'nitro') out.push(<span key="nitro" className="nc-badge nitro">NITRO</span>);
     if (t.phone) out.push(<span key="phone" className="nc-badge phone"><Phone size={10} /> Phone</span>);
     if (t.is_bot) out.push(<span key="bot" className="nc-badge bot"><Bot size={10} /> Bot</span>);
@@ -173,96 +227,81 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 20px', boxSizing: 'border-box', overflowY: 'auto' }}>
-      {/* Clean, Non-Duplicated Toolbar */}
+    <div
+      className="fade-in"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        padding: '24px 28px',
+        boxSizing: 'border-box',
+        overflowY: 'auto',
+        gap: '20px',
+      }}
+    >
+      {/* 1. Header Bar: Title, Subtitle & Primary Actions (Matches Home) */}
       <div
-        className="nc-toolbar"
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 12,
-          padding: '8px 12px',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 10,
-          marginBottom: 16,
           flexWrap: 'wrap',
+          gap: 16,
         }}
       >
-        {/* Left Side: Filter Segmentation Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="nc-seg" style={{ display: 'flex', background: 'var(--bg-main)', padding: 3, borderRadius: 8, border: '1px solid var(--border-light)' }}>
-            {(['all', 'valid', 'invalid'] as ViewFilter[]).map((f) => {
-              const active = filter === f;
-              return (
-                <button
-                  key={f}
-                  className={active ? 'active' : ''}
-                  onClick={() => setFilter(f)}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 6,
-                    border: 'none',
-                    background: active ? 'var(--primary)' : 'transparent',
-                    color: active ? '#ffffff' : 'var(--text-secondary)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {f === 'all' ? 'All' : f === 'valid' ? 'Valid' : 'Invalid'} ({counts[f]})
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sort Selector using CustomSelect */}
-          <div style={{ width: 165 }}>
-            <CustomSelect
-              options={SORT_OPTIONS}
-              value={sort}
-              onChange={(val) => setSort(val as SortMode)}
-            />
-          </div>
-
-          <button
-            onClick={() => setSortDesc((d) => !d)}
-            title={sortDesc ? 'Descending' : 'Ascending'}
+        <div>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: '-0.025em',
+              margin: 0,
+              color: 'var(--text-primary)',
+            }}
+          >
+            Token Accounts
+          </h1>
+          <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              padding: '8px 10px',
-              borderRadius: 8,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-medium)',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
+              gap: 8,
+              fontSize: 12.5,
+              color: 'var(--text-muted)',
+              marginTop: 4,
             }}
           >
-            {sortDesc ? <SortDesc size={15} /> : <SortAsc size={15} />}
-          </button>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              <strong style={{ color: 'var(--text-secondary)' }}>{tokens.length}</strong> Accounts Loaded
+            </span>
+            <span>·</span>
+            <span>
+              <strong style={{ color: 'var(--text-secondary)' }}>{serverCount}</strong> Accessible Guilds
+            </span>
+            <span>·</span>
+            <span>
+              <strong style={{ color: 'var(--text-secondary)' }}>{counts.valid}</strong> Valid Credentials
+            </span>
+          </div>
         </div>
 
-        {/* Right Side: Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {selectedArr.length > 0 && (
             <button
-              className="button-secondary"
               onClick={() => onDelete(selectedArr.map((t) => t.token))}
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: '8px 12px',
-                borderRadius: 8,
+                padding: '8px 14px',
+                fontSize: 12.5,
+                fontWeight: 600,
+                borderRadius: 6,
                 background: 'rgba(239, 68, 68, 0.12)',
                 border: '1px solid rgba(239, 68, 68, 0.25)',
                 color: 'var(--danger)',
-                fontSize: 12.5,
-                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
@@ -272,39 +311,37 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
           )}
 
           <button
-            className="button-secondary"
-            disabled={validating || (selectedArr.length === 0 && tokens.length === 0)}
             onClick={() => onRequestValidate(selectedArr.length > 0 ? selectedArr : tokens)}
+            disabled={validating || tokens.length === 0}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 7,
               padding: '8px 14px',
-              borderRadius: 8,
-              background: 'var(--bg-main)',
-              border: '1px solid var(--border-medium)',
-              color: 'var(--text-primary)',
               fontSize: 12.5,
               fontWeight: 600,
-              cursor: validating ? 'not-allowed' : 'pointer',
-              opacity: validating ? 0.6 : 1,
+              borderRadius: 6,
+              background: 'var(--bg-card)',
+              border: 'none',
+              boxShadow: 'var(--shadow-sm)',
+              color: 'var(--text-primary)',
+              cursor: tokens.length === 0 || validating ? 'not-allowed' : 'pointer',
+              opacity: tokens.length === 0 || validating ? 0.6 : 1,
+              transition: 'background-color 0.15s ease, box-shadow 0.15s ease',
             }}
           >
             <RotateCcw size={13} className={validating ? 'spin-anim' : ''} />
-            <span>Validate {selectedArr.length > 0 ? `(${selectedArr.length})` : `(${tokens.length})`}</span>
+            <span>{validating ? 'Validating...' : selectedArr.length > 0 ? `Validate (${selectedArr.length})` : 'Validate All'}</span>
           </button>
 
           <button
             className="button-primary"
             onClick={onImport}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
               padding: '8px 16px',
-              borderRadius: 8,
               fontSize: 12.5,
-              fontWeight: 600,
+              borderRadius: 6,
+              boxShadow: '0 2px 8px var(--primary-glow)',
             }}
           >
             <Upload size={14} />
@@ -313,65 +350,289 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
         </div>
       </div>
 
-      {/* Account Cards / Rows List */}
+      {/* 2. Top Metric Cards (Matches Home) */}
       <div
-        className="nc-card"
         style={{
-          padding: 8,
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 12,
-          flex: 1,
-          overflowY: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 14,
         }}
       >
+        {/* Metric 1: Account Health */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Token Health</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: counts.invalid > 0 ? 'var(--danger)' : 'var(--success)',
+                background: counts.invalid > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                padding: '1px 6px',
+                borderRadius: 4,
+              }}
+            >
+              {validPct}% Valid
+            </span>
+          </div>
+
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {counts.valid}{' '}
+            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-muted)' }}>/ {tokens.length}</span>
+          </div>
+
+          <div
+            style={{
+              height: 4,
+              borderRadius: 2,
+              background: 'var(--bg-main)',
+              overflow: 'hidden',
+              marginTop: 12,
+              display: 'flex',
+            }}
+          >
+            <div style={{ width: `${validPct}%`, background: '#10b981', transition: 'width 0.3s ease' }} />
+            {counts.invalid > 0 && (
+              <div style={{ width: `${(counts.invalid / (tokens.length || 1)) * 100}%`, background: '#ef4444' }} />
+            )}
+          </div>
+        </div>
+
+        {/* Metric 2: Accessible Guilds */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Accessible Guilds</span>
+            <Server size={14} style={{ color: 'var(--text-muted)' }} />
+          </div>
+
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {serverCount}
+          </div>
+
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 10 }}>
+            <span>Available servers across accounts</span>
+          </div>
+        </div>
+
+        {/* Metric 3: Active Selection */}
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Selection & Filter</span>
+            <CheckCircle2 size={14} style={{ color: selected.size > 0 ? 'var(--primary)' : 'var(--text-muted)' }} />
+          </div>
+
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {selected.size}{' '}
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>selected</span>
+          </div>
+
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 10 }}>
+            <span>{rows.length} accounts displayed</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Main Account Card Feed (Card Container matching Home) */}
+      <div
+        className="card"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-panel)',
+          borderRadius: 10,
+          padding: '18px 20px',
+          boxShadow: 'var(--shadow-card)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          flex: 1,
+        }}
+      >
+        {/* Search & Filter Toolbar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          {/* Quick Search Input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'var(--bg-main)',
+              border: 'none',
+              boxShadow: 'var(--shadow-sm)',
+              borderRadius: 6,
+              padding: '0 10px',
+              height: 32,
+              flex: 1,
+              maxWidth: 340,
+            }}
+          >
+            <Search size={13} style={{ color: 'var(--text-muted)', marginRight: 6 }} />
+            <input
+              type="text"
+              placeholder="Search accounts by name, user ID, email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                width: '100%',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
+
+          {/* Right Controls: Filter Pills & Sort Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div
+              style={{
+                display: 'flex',
+                background: 'var(--bg-main)',
+                padding: 2,
+                borderRadius: 6,
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              {(['all', 'valid', 'invalid'] as ViewFilter[]).map((f) => {
+                const active = filter === f;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 4,
+                      border: 'none',
+                      background: active ? 'var(--primary)' : 'transparent',
+                      color: active ? '#ffffff' : 'var(--text-secondary)',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.12s ease',
+                    }}
+                  >
+                    {f === 'all' ? 'All' : f === 'valid' ? 'Valid' : 'Invalid'} ({counts[f]})
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ width: 150 }}>
+              <CustomSelect
+                options={SORT_OPTIONS}
+                value={sort}
+                onChange={(val) => setSort(val as SortMode)}
+              />
+            </div>
+
+            <button
+              onClick={() => setSortDesc((d) => !d)}
+              title={sortDesc ? 'Descending' : 'Ascending'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                background: 'var(--bg-main)',
+                border: 'none',
+                boxShadow: 'var(--shadow-sm)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              {sortDesc ? <SortDesc size={14} /> : <SortAsc size={14} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Select All Bar */}
+        {rows.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '4px 8px',
+              fontSize: 11.5,
+              color: 'var(--text-muted)',
+              borderBottom: '1px solid var(--border-light)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={selected.size === rows.length && rows.length > 0}
+                onChange={selectAll}
+                style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+              />
+              <span>Select All ({rows.length})</span>
+            </div>
+            <span>{selected.size} selected</span>
+          </div>
+        )}
+
+        {/* Accounts Card List */}
         {rows.length === 0 ? (
-          <div className="nc-empty" style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            <Search size={32} style={{ opacity: 0.4, marginBottom: 12 }} />
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <Search size={28} style={{ opacity: 0.35, marginBottom: 10 }} />
+            <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
               {tokens.length === 0 ? 'No accounts loaded' : 'No matching accounts'}
             </h3>
-            <p style={{ fontSize: 13, margin: 0 }}>
+            <p style={{ fontSize: 12, margin: 0 }}>
               {tokens.length === 0
                 ? 'Import your Discord tokens to begin validating, managing, and connecting.'
-                : 'No accounts match the current filter criteria.'}
+                : 'No accounts match the current filter or search criteria.'}
             </p>
             {tokens.length === 0 && (
-              <button className="button-primary" onClick={onImport} style={{ marginTop: 14, fontSize: 12.5 }}>
+              <button className="button-primary" onClick={onImport} style={{ marginTop: 12, fontSize: 12, borderRadius: 6 }}>
                 Import Tokens
               </button>
             )}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {/* Header select all bar */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '6px 12px',
-                fontSize: 11.5,
-                color: 'var(--text-muted)',
-                borderBottom: '1px solid var(--border-light)',
-                marginBottom: 4,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={selected.size === rows.length && rows.length > 0}
-                  onChange={selectAll}
-                  style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-                />
-                <span>Select All ({rows.length})</span>
-              </div>
-              <span>{selected.size} selected</span>
-            </div>
-
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
             {rows.map((t) => {
               const s = status(t);
               const isSelected = selected.has(t.token);
+              const nameToShow = t.global_name || t.username;
+
               return (
                 <div
                   key={t.token}
@@ -385,12 +646,13 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    padding: '10px 14px',
+                    padding: '8px 12px',
                     borderRadius: 8,
-                    background: isSelected ? 'rgba(59, 130, 246, 0.09)' : 'var(--bg-main)',
+                    background: isSelected ? 'rgba(88, 101, 242, 0.08)' : 'var(--bg-main)',
                     border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-light)',
+                    boxShadow: 'var(--shadow-sm)',
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease',
+                    transition: 'all 0.12s ease',
                     gap: 12,
                   }}
                 >
@@ -402,32 +664,47 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
                     style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
                   />
 
+                  {/* Avatar Picture */}
                   <div
-                    className="nc-avatar"
                     style={{
                       width: 34,
                       height: 34,
                       borderRadius: '50%',
-                      background: s === 'valid' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(239, 68, 68, 0.14)',
-                      color: s === 'valid' ? 'var(--success)' : 'var(--danger)',
+                      overflow: 'hidden',
+                      background: s === 'valid' ? 'rgba(16, 185, 129, 0.12)' : s === 'locked' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                      border: `1.5px solid ${s === 'valid' ? '#10b981' : s === 'locked' ? '#f59e0b' : '#ef4444'}`,
+                      color: s === 'valid' ? 'var(--text-primary)' : 'var(--danger)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: 700,
                       flexShrink: 0,
                     }}
                   >
-                    {(t.username || '?').slice(0, 2).toUpperCase()}
+                    {t.avatar_url ? (
+                      <img
+                        src={t.avatar_url}
+                        alt={nameToShow}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          (e.target as any).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <span>{(nameToShow || '?').slice(0, 2).toUpperCase()}</span>
+                    )}
                   </div>
 
-                  <div className="nc-token-main" style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  {/* Account Name & Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }}>
                       {validatingSet.has(t.token) ? (
                         <RefreshCw size={12} className="spin-anim" style={{ color: 'var(--primary)', flexShrink: 0 }} />
                       ) : (
                         <span className={`nc-status-dot ${s}`} />
                       )}
+
                       {renaming === t.token ? (
                         <input
                           ref={renameRef}
@@ -435,56 +712,136 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
                           onChange={(e) => setRenameValue(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              onRename(t.token, renameValue.trim() || t.username);
+                              onRename(t.token, renameValue.trim() || nameToShow);
                               setRenaming(null);
                             }
                             if (e.key === 'Escape') setRenaming(null);
                           }}
                           onBlur={() => setRenaming(null)}
                           style={{
-                            height: 24,
+                            height: 22,
                             border: '1px solid var(--primary)',
-                            borderRadius: 6,
+                            borderRadius: 4,
                             background: 'var(--bg-card)',
                             color: 'var(--text-primary)',
-                            fontSize: 13.5,
-                            fontWeight: 700,
-                            padding: '0 6px',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            padding: '0 5px',
                             outline: 'none',
                           }}
                         />
                       ) : (
-                        <span className="nc-token-name" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {t.username}
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {nameToShow}
                         </span>
                       )}
-                      {t.discriminator && t.discriminator !== '0' && (
-                        <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontSize: 12 }}>#{t.discriminator}</span>
+
+                      {t.username && t.username !== 'Unknown' && (
+                        <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 500 }}>
+                          @{t.username}
+                        </span>
                       )}
-                      <div className="nc-token-meta">{badge(t)}</div>
+
+                      <div style={{ display: 'inline-flex', gap: 4 }}>{badge(t)}</div>
                     </div>
-                    <div className="nc-token-sub" style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'monospace' }}>
-                      {t.token.slice(0, 24)}…{t.token.slice(-8)}
-                      {t.user_id && <span style={{ color: 'var(--text-muted)' }}>  ·  {t.user_id}</span>}
-                      {t.email && <span style={{ color: 'var(--text-muted)' }}>  ·  {t.email}</span>}
-                      {justCopied === `tk-${t.token}` && <span style={{ color: 'var(--success)', fontWeight: 600 }}>  ✓ copied</span>}
-                      {justCopied === `id-${t.token}` && <span style={{ color: 'var(--success)', fontWeight: 600 }}>  ✓ id copied</span>}
+
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'monospace', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span>{t.token.slice(0, 16)}…{t.token.slice(-6)}</span>
+                      {t.user_id && <span>· ID: {t.user_id}</span>}
+                      {t.email && <span>· {t.email}</span>}
+                      {justCopied === `tk-${t.token}` && <span style={{ color: 'var(--success)', fontWeight: 600 }}>✓ token copied</span>}
                     </div>
                   </div>
 
-                  <span
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      color: 'var(--text-secondary)',
-                      background: 'var(--bg-card-hover)',
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {t.servers?.length ?? 0} servers
-                  </span>
+                  {/* Actions & Servers */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {s === 'invalid' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReplacingToken(t);
+                          setNewTokenInput('');
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          background: 'rgba(88, 101, 242, 0.12)',
+                          border: '1px solid rgba(88, 101, 242, 0.3)',
+                          color: 'var(--primary)',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                        title="Paste a new token for this account"
+                      >
+                        <KeyRound size={11} />
+                        <span>Replace</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copy(t.token, `tk-${t.token}`);
+                      }}
+                      title="Copy Token"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: 4,
+                        borderRadius: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Copy size={13} />
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onJoinVoice(t.token);
+                      }}
+                      disabled={s !== 'valid'}
+                      title="Connect to Voice"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        background: 'var(--bg-card)',
+                        border: 'none',
+                        boxShadow: 'var(--shadow-sm)',
+                        color: s === 'valid' ? 'var(--primary)' : 'var(--text-muted)',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: s === 'valid' ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      <Mic size={12} />
+                      <span>Voice</span>
+                    </button>
+
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        background: 'var(--bg-card)',
+                        boxShadow: 'var(--shadow-sm)',
+                        padding: '3px 8px',
+                        borderRadius: 4,
+                      }}
+                    >
+                      {t.servers?.length ?? 0} servers
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -492,6 +849,107 @@ export const AccountsView: React.FC<AccountsViewProps> = ({
         )}
       </div>
 
+      {/* Replace Token Modal Dialog */}
+      {replacingToken && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(2px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+          }}
+          onClick={() => setReplacingToken(null)}
+        >
+          <div
+            className="nc-card fade-in"
+            style={{
+              width: '100%',
+              maxWidth: 460,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 10,
+              padding: 22,
+              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <KeyRound size={16} color="var(--primary)" />
+                <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Replace Token for {replacingToken.global_name || replacingToken.username}
+                </h3>
+              </div>
+              <button
+                onClick={() => setReplacingToken(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
+              Paste the new Discord token for account <strong>{replacingToken.global_name || replacingToken.username}</strong> ({replacingToken.user_id ? `ID: ${replacingToken.user_id}` : ''}).
+            </p>
+
+            <form onSubmit={handleConfirmReplace} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Paste new Discord token here..."
+                value={newTokenInput}
+                onChange={(e) => setNewTokenInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: 6,
+                  color: 'var(--text-primary)',
+                  fontSize: 12.5,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setReplacingToken(null)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    background: 'transparent',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-secondary)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newTokenInput.trim() || isReplacing}
+                  className="button-primary"
+                  style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600 }}
+                >
+                  {isReplacing ? 'Saving...' : 'Confirm Replace'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.token)} onClose={() => setMenu(null)} />}
     </div>
   );

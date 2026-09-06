@@ -55,35 +55,59 @@ export async function ensureYtDlpBinary(): Promise<string | null> {
   }
 }
 
+function sanitizeBinaryPath(filePath: string): string {
+  if (!filePath) return filePath;
+  if (filePath.includes("app.asar") && !filePath.includes("app.asar.unpacked")) {
+    const unpacked = filePath.replace("app.asar", "app.asar.unpacked");
+    if (fs.existsSync(unpacked)) {
+      return unpacked;
+    }
+  }
+  return filePath;
+}
+
 export function getYtDlpPath(): string {
-  if (process.env.YTDLP_PATH && fs.existsSync(process.env.YTDLP_PATH)) {
-    return process.env.YTDLP_PATH;
+  if (process.env.YTDLP_PATH) {
+    const p = sanitizeBinaryPath(process.env.YTDLP_PATH);
+    if (fs.existsSync(p)) return p;
   }
 
-  const candidates: string[] = [
-    path.join(__dirname, "yt-dlp.exe"),
-    path.join(__dirname, "..", "yt-dlp.exe"),
-    path.join(__dirname, "..", "main", "yt-dlp.exe"),
-    path.join(process.cwd(), "bin", "yt-dlp.exe"),
-    path.join(process.cwd(), "dist", "main", "yt-dlp.exe"),
-  ];
+  const candidates: string[] = [];
 
+  // Packaged Electron resources directory (extraResources / installer locations)
+  if (typeof process.resourcesPath !== "undefined") {
+    candidates.push(
+      path.join(process.resourcesPath, "bin", "yt-dlp.exe"),
+      path.join(process.resourcesPath, "yt-dlp.exe"),
+      path.join(process.resourcesPath, "app.asar.unpacked", "bin", "yt-dlp.exe"),
+      path.join(process.resourcesPath, "app.asar.unpacked", "dist", "main", "yt-dlp.exe")
+    );
+  }
+
+  // App userData directory (downloaded or user directory)
   try {
     if (app?.getPath) {
-      candidates.push(path.join(app.getPath("userData"), "bin", "yt-dlp.exe"));
+      candidates.push(
+        path.join(app.getPath("userData"), "bin", "yt-dlp.exe"),
+        path.join(app.getPath("userData"), "yt-dlp.exe")
+      );
     }
   } catch {}
 
-  try {
-    if (typeof process.resourcesPath !== "undefined") {
-      candidates.push(path.join(process.resourcesPath, "yt-dlp.exe"));
-      candidates.push(path.join(process.resourcesPath, "bin", "yt-dlp.exe"));
-    }
-  } catch {}
+  candidates.push(
+    sanitizeBinaryPath(path.join(__dirname, "yt-dlp.exe")),
+    sanitizeBinaryPath(path.join(__dirname, "..", "yt-dlp.exe")),
+    sanitizeBinaryPath(path.join(__dirname, "..", "main", "yt-dlp.exe")),
+    path.join(process.cwd(), "bin", "yt-dlp.exe"),
+    path.join(process.cwd(), "dist", "main", "yt-dlp.exe")
+  );
 
   for (const c of candidates) {
     if (c && fs.existsSync(c)) {
-      return c;
+      const sanitized = sanitizeBinaryPath(c);
+      if (fs.existsSync(sanitized)) {
+        return sanitized;
+      }
     }
   }
 

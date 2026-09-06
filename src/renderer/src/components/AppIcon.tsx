@@ -17,20 +17,32 @@ export const AppIcon: React.FC<AppIconProps> = ({ size = 26, className }) => {
       style={{ flexShrink: 0 }}
     >
       <defs>
+        {/* Sleek Discord Blurple & Electric Indigo Gradient */}
         <linearGradient id="nc-bg-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#1d4ed8" />
+          <stop offset="0%" stopColor="#6366F1" />
+          <stop offset="50%" stopColor="#5865F2" />
+          <stop offset="100%" stopColor="#4338CA" />
         </linearGradient>
-        <linearGradient id="nc-inner-grad" x1="10" y1="8" x2="30" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#bfdbfe" stopOpacity="0.8" />
+
+        {/* Soft Radial Ambient Highlight */}
+        <radialGradient id="nc-radial-light" cx="20%" cy="15%" r="85%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+          <stop offset="60%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+
+        {/* Modern Crisp Foreground Gradient */}
+        <linearGradient id="nc-symbol-grad" x1="12" y1="10" x2="28" y2="30" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#E0E7FF" />
         </linearGradient>
-        <filter id="nc-drop" x="0" y="2" width="40" height="38" filterUnits="userSpaceOnUse">
-          <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#1d4ed8" floodOpacity="0.35" />
+
+        {/* Deep Smooth Drop Shadow */}
+        <filter id="nc-shadow" x="0" y="2" width="40" height="38" filterUnits="userSpaceOnUse">
+          <feDropShadow dx="0" dy="2.5" stdDeviation="3" floodColor="#3730A3" floodOpacity="0.45" />
         </filter>
       </defs>
 
-      {/* Rounded Squircle Container with drop shadow */}
+      {/* Main Squircle Container */}
       <rect
         x="2"
         y="2"
@@ -38,36 +50,50 @@ export const AppIcon: React.FC<AppIconProps> = ({ size = 26, className }) => {
         height="36"
         rx="10"
         fill="url(#nc-bg-grad)"
-        filter="url(#nc-drop)"
+        filter="url(#nc-shadow)"
       />
 
-      {/* Subtle border highlight */}
+      {/* Gloss / Light reflection overlay */}
+      <rect
+        x="2"
+        y="2"
+        width="36"
+        height="36"
+        rx="10"
+        fill="url(#nc-radial-light)"
+      />
+
+      {/* Subtle crisp inner border */}
       <rect
         x="2.5"
         y="2.5"
         width="35"
         height="35"
         rx="9.5"
-        stroke="rgba(255, 255, 255, 0.25)"
+        stroke="rgba(255, 255, 255, 0.28)"
         strokeWidth="1"
       />
 
-      {/* Discord Bot Silhouette & Token Key */}
-      <g transform="translate(7.5, 9)">
-        {/* Discord Controller Head Base */}
+      {/* Futuristic Hybrid Node / Compass / Controller Symbol */}
+      <g transform="translate(8, 8)">
+        {/* Dynamic connection wings / controller base */}
         <path
-          d="M21.2 2.2C19.6 1.4 17.8 0.9 16 0.7C15.8 1.1 15.6 1.6 15.4 2.1C13.4 1.8 11.6 1.8 9.6 2.1C9.4 1.6 9.2 1.1 9 0.7C7.2 0.9 5.4 1.4 3.8 2.2C0.6 7.0 -0.2 11.6 0.1 16.2C2.3 17.8 4.4 18.8 6.5 19.4C7.0 18.7 7.5 18.0 7.9 17.2C7.1 16.9 6.4 16.5 5.8 16.0C6.0 15.9 6.1 15.7 6.3 15.6C10.3 17.5 14.7 17.5 18.7 15.6C18.9 15.7 19.0 15.9 19.2 16.0C18.6 16.5 17.8 16.9 17.1 17.2C17.5 18.0 18.0 18.7 18.5 19.4C20.6 18.8 22.7 17.8 24.9 16.2C25.3 10.9 24.0 6.4 21.2 2.2Z"
-          fill="url(#nc-inner-grad)"
+          d="M20.5 2.1C18.9 1.4 17.2 0.9 15.4 0.7C15.2 1.1 15.0 1.6 14.8 2.0C12.9 1.7 11.1 1.7 9.2 2.0C9.0 1.6 8.8 1.1 8.6 0.7C6.8 0.9 5.1 1.4 3.5 2.1C0.4 6.8 -0.3 11.3 0.1 15.7C2.2 17.3 4.3 18.2 6.3 18.8C6.8 18.1 7.3 17.4 7.7 16.7C7.0 16.4 6.3 16.0 5.6 15.5C5.8 15.4 6.0 15.2 6.1 15.1C10.0 16.9 14.0 16.9 17.9 15.1C18.0 15.2 18.2 15.4 18.4 15.5C17.7 16.0 17.0 16.4 16.3 16.7C16.7 17.4 17.2 18.1 17.7 18.8C19.7 18.2 21.8 17.3 23.9 15.7C24.4 10.5 23.1 6.1 20.5 2.1Z"
+          fill="url(#nc-symbol-grad)"
         />
 
-        {/* Left Eyes & Right Eyes (Token Connect Ports) */}
-        <circle cx="7.2" cy="9.2" r="2.2" fill="#1e3a8a" />
-        <circle cx="17.8" cy="9.2" r="2.2" fill="#1e3a8a" />
+        {/* Left Connection Eye */}
+        <circle cx="7" cy="8.8" r="2.2" fill="#312E81" />
+        <circle cx="7" cy="8.8" r="1.1" fill="#818CF8" />
 
-        {/* Central Key / Lightning Node in Controller */}
+        {/* Right Connection Eye */}
+        <circle cx="17" cy="8.8" r="2.2" fill="#312E81" />
+        <circle cx="17" cy="8.8" r="1.1" fill="#818CF8" />
+
+        {/* Central North Star / Nexus Pulse */}
         <path
-          d="M13.2 5.5L11.5 9.5H13.8L12.2 13.8L15.2 9.5H13.0L14.2 5.5H13.2Z"
-          fill="#3b82f6"
+          d="M12 4.2L12.9 7.1L15.8 8.0L12.9 8.9L12 11.8L11.1 8.9L8.2 8.0L11.1 7.1L12 4.2Z"
+          fill="#5865F2"
         />
       </g>
     </svg>

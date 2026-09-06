@@ -88,21 +88,28 @@ interface ElectronAPI {
   importTokens: (text: string) => Promise<number>;
   deleteTokens: (tokens: string[]) => Promise<void>;
   renameToken: (token: string, name: string) => Promise<void>;
+  replaceToken: (oldToken: string, newToken: string) => Promise<{ success?: boolean; error?: string }>;
   validateTokens: (tokens: string[]) => Promise<any[]>;
   onValidationProgress: (callback: (data: { token: string; ok: boolean; isNew?: boolean }) => void) => () => void;
 
   getServers: () => Promise<Record<string, ServerEntry>>;
   getChannels: (token: string, guildId: string) => Promise<Array<{ id: string; name: string }>>;
+  resolveChannel?: (payload: { token: string; channelId: string }) => Promise<{ id: string; name: string; guild_id: string; type: number } | null>;
+  searchGuildMembers?: (payload: { token: string; guildId: string; query: string }) => Promise<Array<{ userId: string; username: string; globalName: string; avatarUrl: string }>>;
+  getUserInfo?: (payload: { token: string; userId: string }) => Promise<{ userId: string; username: string; globalName: string; avatarUrl: string } | null>;
 
   voiceJoin: (payload: VoiceJoinPayload) => Promise<{ success: boolean; error?: string }>;
   voiceLeave: (token: string) => Promise<void>;
   voiceSetMute?: (token: string, mute: boolean) => Promise<{ success: boolean }>;
   voiceSetDeaf?: (token: string, deaf: boolean) => Promise<{ success: boolean }>;
   voiceSetStream?: (token: string, stream: boolean) => Promise<{ success: boolean }>;
-  voiceGetStates?: () => Promise<Record<string, { mute: boolean; deaf: boolean; isStreaming: boolean }>>;
+  voiceGetStates?: () => Promise<Record<string, { mute: boolean; deaf: boolean; isStreaming: boolean; isWatching?: boolean; watchingUserId?: string | null; watchingStreamKey?: string | null }>>;
   getScreenSources?: () => Promise<Array<{ id: string; name: string; thumbnail: string; isScreen: boolean }>>;
   voiceStartScreenshare?: (payload: { token: string; sourceId: string; sourceName: string }) => Promise<{ success: boolean }>;
   voiceStopScreenshare?: (token: string) => Promise<{ success: boolean }>;
+  voiceWatchStream?: (payload: { token: string; targetUserId: string; guildId?: string; channelId?: string }) => Promise<{ success: boolean; count?: number; error?: string }>;
+  voiceStopWatchingStream?: (token: string) => Promise<{ success: boolean; error?: string }>;
+  voiceGetStreamers?: (token?: string) => Promise<Array<{ userId: string; username: string; globalName: string; avatarUrl: string; streamKey: string }>>;
   voiceDisconnectAll: () => Promise<void>;
   onVoiceState: (callback: (data: { type: string; token?: string }) => void) => () => void;
   onVoiceStateUpdate?: (callback: (data: any) => void) => () => void;
@@ -137,6 +144,7 @@ interface ElectronAPI {
   audioSetTarget: (targetToken: string | "all") => Promise<void>;
   audioGetState: () => Promise<AudioPlayerState>;
   audioGetPresets: () => Promise<SoundboardPreset[]>;
+  audioSavePresets: (items: SoundboardPreset[]) => Promise<void>;
   audioGetLibrary: () => Promise<AudioTrack[]>;
   audioSaveLibrary: (items: AudioTrack[]) => Promise<void>;
   onAudioStateChanged: (callback: (state: AudioPlayerState) => void) => () => void;

@@ -40,6 +40,18 @@ export class VoiceConnection {
   private isMuted = false;
   private isDeafened = false;
   private isStreaming = false;
+  private watchingStreamKey: string | null = null;
+  private watchingUserId: string | null = null;
+  private activeStreamers = new Map<
+    string,
+    {
+      userId: string;
+      username: string;
+      globalName: string;
+      avatarUrl: string;
+      streamKey: string;
+    }
+  >();
   private lastVoiceStateUpdate: any = null;
   private lastVoiceServerUpdate: any = null;
   private adapterMethods: DiscordGatewayAdapterLibraryMethods | null = null;
@@ -87,7 +99,56 @@ export class VoiceConnection {
       mute: this.isMuted,
       deaf: this.isDeafened,
       isStreaming: this.isStreaming,
+      isWatching: Boolean(this.watchingStreamKey),
+      watchingUserId: this.watchingUserId,
+      watchingStreamKey: this.watchingStreamKey,
     };
+  }
+
+  getActiveStreamers() {
+    return Array.from(this.activeStreamers.values());
+  }
+
+  watchStream(targetUserId: string, guildId?: string, channelId?: string): boolean {
+    const gid = guildId || this.currentGuildId;
+    const cid = channelId || this.currentChannelId;
+    if (!gid || !cid || !targetUserId) return false;
+
+    const streamKey = `guild:${gid}:${cid}:${targetUserId}`;
+    this.watchingStreamKey = streamKey;
+    this.watchingUserId = targetUserId;
+
+    if (this.connected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          op: 22,
+          d: {
+            stream_key: streamKey,
+            paused: false,
+          },
+        })
+      );
+      this.onLog(`Watching stream for user ${targetUserId} (${streamKey})`, "info");
+      return true;
+    }
+    return false;
+  }
+
+  stopWatchingStream(): void {
+    if (this.connected && this.ws && this.ws.readyState === WebSocket.OPEN && this.watchingStreamKey) {
+      this.ws.send(
+        JSON.stringify({
+          op: 22,
+          d: {
+            stream_key: null,
+            paused: false,
+          },
+        })
+      );
+      this.onLog(`Stopped watching stream (${this.watchingStreamKey})`, "info");
+    }
+    this.watchingStreamKey = null;
+    this.watchingUserId = null;
   }
 
   update_voice_state(mute?: boolean, deaf?: boolean, stream?: boolean): void {
@@ -207,6 +268,36 @@ export class VoiceConnection {
             if (msg.t === "VOICE_STATE_UPDATE") {
               const msgUserId = msg.d?.user_id ? String(msg.d.user_id) : "";
               const myUserId = this.userId ? String(this.userId) : "";
+              const msgGuildId = msg.d?.guild_id ? String(msg.d.guild_id) : "";
+              const msgChannelId = msg.d?.channel_id ? String(msg.d.channel_id) : null;
+
+              // Track active streamers in the same voice channel
+              if (
+                this.currentGuildId &&
+                this.currentChannelId &&
+                msgGuildId === this.currentGuildId &&
+                msgUserId
+              ) {
+                const isStreaming = Boolean(msg.d?.self_stream || msg.d?.self_video);
+                if (msgChannelId === this.currentChannelId && isStreaming) {
+                  const uname = msg.d?.member?.user?.username || msgUserId;
+                  const gname = msg.d?.member?.user?.global_name || msg.d?.member?.nick || uname;
+                  const av = msg.d?.member?.user?.avatar;
+                  const avUrl = av
+                    ? `https://cdn.discordapp.com/avatars/${msgUserId}/${av}.png?size=128`
+                    : `https://cdn.discordapp.com/embed/avatars/${(BigInt(msgUserId) >> 22n) % 6n}.png`;
+
+                  this.activeStreamers.set(msgUserId, {
+                    userId: msgUserId,
+                    username: uname,
+                    globalName: gname,
+                    avatarUrl: avUrl,
+                    streamKey: `guild:${this.currentGuildId}:${this.currentChannelId}:${msgUserId}`,
+                  });
+                } else if (msgChannelId !== this.currentChannelId || !isStreaming) {
+                  this.activeStreamers.delete(msgUserId);
+                }
+              }
 
               // CRITICAL: Only dispatch OWN voice state to adapter, ignore other users in guild
               if (msgUserId && myUserId && msgUserId === myUserId) {
@@ -219,6 +310,11 @@ export class VoiceConnection {
                 }
                 if (msg.d?.channel_id !== undefined) {
                   this.currentChannelId = msg.d.channel_id ? String(msg.d.channel_id) : null;
+                  if (!this.currentChannelId) {
+                    this.activeStreamers.clear();
+                    this.watchingStreamKey = null;
+                    this.watchingUserId = null;
+                  }
                 }
                 if (msg.d?.self_mute !== undefined) {
                   this.isMuted = Boolean(msg.d.self_mute);
@@ -243,6 +339,8 @@ export class VoiceConnection {
                 this.onLog(`Gateway: voice server received (endpoint=${payload.endpoint})`, "info");
                 this.adapterMethods?.onVoiceServerUpdate(payload);
               }
+            } else if (msg.t === "STREAM_SERVER_UPDATE" || msg.t === "STREAM_CREATE") {
+              this.onLog(`Gateway: stream event (${msg.t}) received`, "info");
             }
           }
 
@@ -300,6 +398,8 @@ export class VoiceConnection {
   }
 
   async leave_voice(guildId?: string): Promise<void> {
+    this.stopWatchingStream();
+    this.activeStreamers.clear();
     const gid = guildId || this.currentGuildId;
     if (this.connected && this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
@@ -318,6 +418,8 @@ export class VoiceConnection {
   }
 
   async disconnect(): Promise<void> {
+    this.stopWatchingStream();
+    this.activeStreamers.clear();
     this.connected = false;
     this.stopHeartbeat();
     this.messageListeners.clear();

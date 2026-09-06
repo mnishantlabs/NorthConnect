@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   importTokens: (text: string) => ipcRenderer.invoke("import-tokens", text),
   deleteTokens: (tokens: string[]) => ipcRenderer.invoke("delete-tokens", tokens),
   renameToken: (token: string, name: string) => ipcRenderer.invoke("rename-token", token, name),
+  replaceToken: (oldToken: string, newToken: string) => ipcRenderer.invoke("replace-token", oldToken, newToken),
   validateTokens: (tokens: string[]) => ipcRenderer.invoke("validate-tokens", tokens),
   onValidationProgress: (callback: (data: { token: string; ok: boolean }) => void) =>
     subscribe("validation-progress", callback),
@@ -50,6 +51,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getServers: () => ipcRenderer.invoke("get-servers"),
   getChannels: (token: string, guildId: string) =>
     ipcRenderer.invoke("get-channels", token, guildId),
+  resolveChannel: (payload: { token: string; channelId: string }) =>
+    ipcRenderer.invoke("resolve-channel", payload),
+  searchGuildMembers: (payload: { token: string; guildId: string; query: string }) =>
+    ipcRenderer.invoke("search-guild-members", payload),
+  getUserInfo: (payload: { token: string; userId: string }) =>
+    ipcRenderer.invoke("get-user-info", payload),
 
   // voice
   voiceJoin: (payload: {
@@ -70,6 +77,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   voiceStartScreenshare: (payload: { token: string; sourceId: string; sourceName: string }) =>
     ipcRenderer.invoke("voice-start-screenshare", payload),
   voiceStopScreenshare: (token: string) => ipcRenderer.invoke("voice-stop-screenshare", token),
+  voiceWatchStream: (payload: { token: string; targetUserId: string; guildId?: string; channelId?: string }) =>
+    ipcRenderer.invoke("voice-watch-stream", payload),
+  voiceStopWatchingStream: (token: string) =>
+    ipcRenderer.invoke("voice-stop-watching-stream", token),
+  voiceGetStreamers: (token?: string) =>
+    ipcRenderer.invoke("voice-get-streamers", token),
   voiceDisconnectAll: () => ipcRenderer.invoke("voice-disconnect-all"),
   onVoiceState: (callback: (data: { type: string; token?: string }) => void) =>
     subscribe("voice-state", callback),
@@ -107,6 +120,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   audioSetTarget: (targetToken: string | "all") => ipcRenderer.invoke("audio-set-target", targetToken),
   audioGetState: () => ipcRenderer.invoke("audio-get-state"),
   audioGetPresets: () => ipcRenderer.invoke("audio-get-presets"),
+  audioSavePresets: (items: any[]) => ipcRenderer.invoke("audio-save-presets", items),
   audioGetLibrary: () => ipcRenderer.invoke("audio-get-library"),
   audioSaveLibrary: (items: any[]) => ipcRenderer.invoke("audio-save-library", items),
   onAudioStateChanged: (callback: (state: any) => void) => subscribe("audio-state-changed", callback),

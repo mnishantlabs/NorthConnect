@@ -251,6 +251,42 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
     [library, playerState.trackPath, saveLibrary]
   );
 
+  // Add sound to soundboard
+  const handleAddSoundboardSound = useCallback(async () => {
+    if (!window.electronAPI) return;
+    const added = await window.electronAPI.audioSelectFiles();
+    if (added?.length) {
+      const existing = new Set(presets.map((p) => p.filePath));
+      const filtered = added.filter((t) => !existing.has(t.filePath));
+      if (filtered.length > 0) {
+        const newPresets: SoundboardPreset[] = filtered.map((f, i) => ({
+          id: `sfx_${Date.now()}_${i}`,
+          name: f.title || f.fileName,
+          category: 'Custom SFX',
+          icon: 'Flame',
+          duration: f.duration ? `${Math.floor(f.duration / 60)}:${Math.floor(f.duration % 60).toString().padStart(2, '0')}` : '0:05',
+          filePath: f.filePath,
+        }));
+        const next = [...presets, ...newPresets];
+        setPresets(next);
+        window.electronAPI.audioSavePresets(next);
+        showNotification(`Added ${newPresets.length} sound(s) to Soundboard!`, 'success');
+      }
+    }
+  }, [presets]);
+
+  // Remove sound from soundboard
+  const handleRemoveSoundboardSound = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const next = presets.filter((p) => p.id !== id);
+      setPresets(next);
+      window.electronAPI?.audioSavePresets(next);
+      showNotification('Sound removed from Soundboard', 'info');
+    },
+    [presets]
+  );
+
   // Play a track into VC
   const handlePlayTrack = useCallback(
     async (track: AudioTrack | SoundboardPreset) => {
@@ -417,12 +453,12 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
       className="play-container fade-in"
       style={{
         padding: '20px 24px',
-        overflowY: 'auto',
+        overflow: 'hidden',
         height: '100%',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: '12px',
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -443,7 +479,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 ? 'rgba(16, 185, 129, 0.95)'
                 : notification.type === 'error'
                 ? 'rgba(239, 68, 68, 0.95)'
-                : 'rgba(59, 130, 246, 0.95)',
+                : 'rgba(88, 101, 242, 0.95)',
             color: '#fff',
             fontSize: 12.5,
             fontWeight: 600,
@@ -458,130 +494,128 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
         </div>
       )}
 
-      {/* Top Banner & VC Status */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 8,
-          padding: '12px 16px',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
+      {/* Overview Header (Fixed at top) */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
+        <div>
+          <h1
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 6,
-              background: connected.size > 0 ? 'rgba(59, 130, 246, 0.12)' : 'rgba(234, 179, 8, 0.12)',
-              border: `1px solid ${connected.size > 0 ? 'rgba(59, 130, 246, 0.25)' : 'rgba(234, 179, 8, 0.25)'}`,
-              color: connected.size > 0 ? 'var(--primary)' : 'var(--warning)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              fontSize: '20px',
+              fontWeight: 800,
+              margin: '0 0 2px 0',
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.025em',
             }}
           >
-            {connected.size > 0 ? <Radio size={18} /> : <Headphones size={18} />}
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h2 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                {connected.size > 0 ? 'Voice Audio Streamer & Soundboard' : 'Voice Disconnected'}
-              </h2>
-              <span
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: 600,
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  background: connected.size > 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                  color: connected.size > 0 ? 'var(--success)' : 'var(--danger)',
-                  border: `1px solid ${connected.size > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                }}
-              >
-                {connected.size} Connected in VC
-              </span>
-            </div>
-            <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-              {connected.size > 0
-                ? 'Stream YouTube Music, Spotify tracks, and local audio directly into active voice channels.'
-                : 'Connect accounts to a voice channel in the Connect tab to begin broadcasting.'}
-            </p>
-          </div>
+            Soundboard & Media Player
+          </h1>
+          <p
+            style={{
+              fontSize: '11.5px',
+              color: 'var(--text-muted)',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <span>High-fidelity audio stream</span>
+            <span>·</span>
+            <span>Low-latency Opus encoder</span>
+            <span>·</span>
+            <span>Multi-channel broadcast</span>
+          </p>
         </div>
 
-        {connected.size === 0 && onNavigate && (
-          <button
-            className="btn btn-primary"
-            onClick={() => onNavigate('connect')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, borderRadius: 6 }}
-          >
-            <span>Go to Connect</span>
-            <ArrowRight size={13} />
-          </button>
-        )}
-
-        {connected.size > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 500 }}>Target:</span>
-            <select
-              value={playerState.targetToken}
-              onChange={(e) => handleTargetChange(e.target.value)}
-              className="select-input"
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {connected.size === 0 && onNavigate && (
+            <button
+              className="button-primary"
+              onClick={() => onNavigate('connect')}
               style={{
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-medium)',
-                color: 'var(--text-primary)',
-                padding: '5px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                fontSize: 11.5,
+                fontWeight: 700,
                 borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 500,
-                outline: 'none',
+                boxShadow: '0 2px 8px var(--primary-glow)',
                 cursor: 'pointer',
               }}
             >
-              <option value="all">🔊 All Connected Accounts ({connected.size})</option>
-              {connectedList.map((t) => (
-                <option key={t.token} value={t.token}>
-                  👤 {t.username || `${t.token.slice(0, 8)}...`}
+              <span>Connect Voice</span>
+              <ArrowRight size={12} />
+            </button>
+          )}
+
+          {connected.size > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                background: 'var(--bg-card)',
+                padding: '4px 10px',
+                borderRadius: 6,
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Target:</span>
+              <select
+                value={playerState.targetToken}
+                onChange={(e) => handleTargetChange(e.target.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-primary)',
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="all" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+                  All Connected Accounts ({connected.size})
                 </option>
-              ))}
-            </select>
-          </div>
-        )}
+                {connectedList.map((t) => (
+                  <option key={t.token} value={t.token} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+                    {t.username || `${t.token.slice(0, 8)}...`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Master Player Deck */}
+      {/* Master Player Deck (Fixed at top) */}
       <div
         className="card"
         style={{
           background: 'var(--bg-card)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: 8,
-          padding: '16px 18px',
+          border: '1px solid var(--border-panel)',
+          borderRadius: 10,
+          padding: '12px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 12,
+          gap: 8,
+          boxShadow: 'var(--shadow-card)',
+          flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
             {/* Album / Track Art Preview */}
             <div
               style={{
-                width: 46,
-                height: 46,
+                width: 40,
+                height: 40,
                 borderRadius: 6,
                 background: playerState.thumbnail
                   ? `url(${playerState.thumbnail}) center/cover no-repeat`
                   : playerState.isPlaying && !playerState.isPaused
                   ? 'var(--primary)'
-                  : 'var(--bg-input)',
+                  : 'var(--bg-main)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
@@ -594,7 +628,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             >
               {!playerState.thumbnail && (
                 <Disc3
-                  size={22}
+                  size={20}
                   style={{
                     animation: playerState.isPlaying && !playerState.isPaused ? 'spin 3s linear infinite' : 'none',
                   }}
@@ -603,10 +637,10 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             </div>
 
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <h3
                   style={{
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: 700,
                     margin: 0,
                     color: playerState.trackName ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -623,7 +657,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 {playerState.sourceType === 'spotify' && (
                   <span
                     style={{
-                      fontSize: 9.5,
+                      fontSize: 9,
                       fontWeight: 700,
                       padding: '1px 5px',
                       borderRadius: 3,
@@ -638,7 +672,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 {playerState.sourceType === 'youtube' && (
                   <span
                     style={{
-                      fontSize: 9.5,
+                      fontSize: 9,
                       fontWeight: 700,
                       padding: '1px 5px',
                       borderRadius: 3,
@@ -654,7 +688,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 {playerState.isPlaying && (
                   <span
                     style={{
-                      fontSize: 9.5,
+                      fontSize: 9,
                       fontWeight: 700,
                       padding: '1px 5px',
                       borderRadius: 3,
@@ -668,156 +702,141 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 )}
               </div>
 
-              <p style={{ margin: '2px 0 0 0', fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <p style={{ margin: '1px 0 0 0', fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {playerState.author ? `${playerState.author} • ` : ''}
                 {playerState.isPlaying
                   ? `Broadcasting via ${playerState.targetToken === 'all' ? `All Accounts (${connected.size})` : `Selected Account`}`
-                  : 'Search YouTube Music or Spotify below or paste any music link to start streaming.'}
+                  : 'Search YouTube Music or Spotify below or add local files to begin streaming.'}
               </p>
             </div>
           </div>
 
-          {/* Visualizer Wave Bars */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: 20 }}>
-            {[30, 60, 85, 50, 95, 45, 75, 40, 90, 55, 30, 70].map((h, i) => (
-              <div
-                key={i}
+          {/* Controls: Play/Pause, Stop, Loop, Volume */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={handleTogglePlayPause}
+                className="button-primary"
                 style={{
-                  width: 2.5,
-                  height: playerState.isPlaying && !playerState.isPaused ? `${h}%` : '15%',
-                  background: playerState.isPlaying && !playerState.isPaused ? 'var(--primary)' : 'var(--border-medium)',
-                  borderRadius: 1,
-                  transition: 'height 0.2s ease',
-                  animation: playerState.isPlaying && !playerState.isPaused ? `pulseWave 0.8s ease-in-out infinite alternate ${i * 0.08}s` : 'none',
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+                title={playerState.isPlaying && !playerState.isPaused ? 'Pause' : 'Play'}
+              >
+                {playerState.isPlaying && !playerState.isPaused ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: 1 }} />}
+              </button>
+
+              <button
+                onClick={handleStop}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'var(--bg-main)',
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
+                  color: 'var(--text-primary)',
+                  cursor: !playerState.isPlaying ? 'not-allowed' : 'pointer',
+                  opacity: !playerState.isPlaying ? 0.5 : 1,
+                }}
+                disabled={!playerState.isPlaying}
+                title="Stop"
+              >
+                <Square size={12} />
+              </button>
+
+              <button
+                onClick={handleToggleLoop}
+                style={{
+                  background: playerState.loop ? 'rgba(88, 101, 242, 0.15)' : 'var(--bg-main)',
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
+                  color: playerState.loop ? 'var(--primary)' : 'var(--text-muted)',
+                  width: 30,
+                  height: 30,
+                  borderRadius: 6,
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+                title={playerState.loop ? 'Loop Enabled' : 'Loop Disabled'}
+              >
+                <Repeat size={13} />
+              </button>
+            </div>
+
+            {/* Volume Slider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 140 }}>
+              {playerState.volume === 0 ? (
+                <VolumeX size={14} style={{ color: 'var(--text-muted)' }} />
+              ) : (
+                <Volume2 size={14} style={{ color: 'var(--primary)' }} />
+              )}
+              <input
+                type="range"
+                min={0}
+                max={200}
+                value={playerState.volume}
+                onChange={handleVolumeChange}
+                style={{
+                  flex: 1,
+                  accentColor: 'var(--primary)',
+                  height: 4,
+                  cursor: 'pointer',
                 }}
               />
-            ))}
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', minWidth: 30 }}>
+                {playerState.volume}%
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Progress Scrub Bar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 34 }}>
-              {formatTime(playerState.currentTime)}
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={playerState.duration || 100}
-              value={playerState.currentTime}
-              onChange={handleSeek}
-              disabled={!playerState.isPlaying}
-              style={{
-                flex: 1,
-                cursor: playerState.isPlaying ? 'pointer' : 'default',
-                accentColor: 'var(--primary)',
-                height: 4,
-              }}
-            />
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 34, textAlign: 'right' }}>
-              {formatTime(playerState.duration)}
-            </span>
-          </div>
-        </div>
-
-        {/* Player Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={handleTogglePlayPause}
-              className="btn btn-primary"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 6,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title={playerState.isPlaying && !playerState.isPaused ? 'Pause' : 'Play'}
-            >
-              {playerState.isPlaying && !playerState.isPaused ? <Pause size={15} /> : <Play size={15} style={{ marginLeft: 1 }} />}
-            </button>
-
-            <button
-              onClick={handleStop}
-              className="btn btn-secondary"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 6,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border-medium)',
-              }}
-              disabled={!playerState.isPlaying}
-              title="Stop"
-            >
-              <Square size={13} />
-            </button>
-
-            <button
-              onClick={handleToggleLoop}
-              className="btn"
-              style={{
-                background: playerState.loop ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
-                border: `1px solid ${playerState.loop ? 'var(--primary)' : 'var(--border-medium)'}`,
-                color: playerState.loop ? 'var(--primary)' : 'var(--text-muted)',
-                width: 32,
-                height: 32,
-                borderRadius: 6,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title={playerState.loop ? 'Loop Enabled' : 'Loop Disabled'}
-            >
-              <Repeat size={14} />
-            </button>
-          </div>
-
-          {/* Volume Slider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
-            {playerState.volume === 0 ? (
-              <VolumeX size={15} style={{ color: 'var(--text-muted)' }} />
-            ) : playerState.volume > 100 ? (
-              <Volume2 size={15} style={{ color: 'var(--primary)' }} />
-            ) : (
-              <Volume1 size={15} style={{ color: 'var(--text-muted)' }} />
-            )}
-            <input
-              type="range"
-              min={0}
-              max={200}
-              value={playerState.volume}
-              onChange={handleVolumeChange}
-              style={{
-                flex: 1,
-                accentColor: 'var(--primary)',
-                height: 4,
-                cursor: 'pointer',
-              }}
-            />
-            <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-primary)', minWidth: 34 }}>
-              {playerState.volume}%
-            </span>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 10.5, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 30 }}>
+            {formatTime(playerState.currentTime)}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={playerState.duration || 100}
+            value={playerState.currentTime}
+            onChange={handleSeek}
+            disabled={!playerState.isPlaying}
+            style={{
+              flex: 1,
+              cursor: playerState.isPlaying ? 'pointer' : 'default',
+              accentColor: 'var(--primary)',
+              height: 4,
+            }}
+          />
+          <span style={{ fontSize: 10.5, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 30, textAlign: 'right' }}>
+            {formatTime(playerState.duration)}
+          </span>
         </div>
       </div>
 
-      {/* Clean Segmented Navigation Tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+      {/* Segmented Navigation Tabs (Fixed at top) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
         <div
           style={{
             display: 'flex',
             background: 'var(--bg-card)',
-            border: '1px solid var(--border-medium)',
+            border: 'none',
+            boxShadow: 'var(--shadow-sm)',
             borderRadius: 6,
             padding: 3,
             gap: 2,
@@ -829,9 +848,9 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              padding: '6px 12px',
+              padding: '5px 12px',
               borderRadius: 4,
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
               background: activeTab === 'online' ? 'var(--primary)' : 'transparent',
@@ -840,7 +859,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               transition: 'background-color 0.12s ease',
             }}
           >
-            <Globe size={14} />
+            <Globe size={13} />
             <span>YouTube & Spotify</span>
           </button>
 
@@ -850,9 +869,9 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              padding: '6px 12px',
+              padding: '5px 12px',
               borderRadius: 4,
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
               background: activeTab === 'playlist' ? 'var(--primary)' : 'transparent',
@@ -861,7 +880,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               transition: 'background-color 0.12s ease',
             }}
           >
-            <ListMusic size={14} />
+            <ListMusic size={13} />
             <span>Playlist & PC Files ({library.length})</span>
           </button>
 
@@ -871,9 +890,9 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              padding: '6px 12px',
+              padding: '5px 12px',
               borderRadius: 4,
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
               background: activeTab === 'soundboard' ? 'var(--primary)' : 'transparent',
@@ -882,122 +901,126 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               transition: 'background-color 0.12s ease',
             }}
           >
-            <Sparkles size={14} />
+            <Sparkles size={13} />
             <span>Soundboard ({presets.length})</span>
           </button>
         </div>
       </div>
 
-      {/* TAB 1: YOUTUBE & SPOTIFY ONLINE MUSIC SEARCH */}
+      {/* ========================================================= */}
+      {/* TAB 1: YOUTUBE & SPOTIFY ONLINE MUSIC SEARCH             */}
+      {/* ========================================================= */}
       {activeTab === 'online' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Quick Direct URL Box & Search Bar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
+          {/* Quick Direct URL Box & Search Bar (Fixed) */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr auto',
               gap: 12,
               background: 'var(--bg-card)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: 8,
-              padding: '12px 16px',
+              border: '1px solid var(--border-panel)',
+              borderRadius: 10,
+              padding: '10px 14px',
+              boxShadow: 'var(--shadow-card)',
+              flexShrink: 0,
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Search size={13} color="var(--primary)" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Search size={12} style={{ color: 'var(--primary)' }} />
                 Search YouTube Music or Spotify
               </span>
-              <form onSubmit={handleSearchOnline} style={{ display: 'flex', gap: 8 }}>
+              <form onSubmit={handleSearchOnline} style={{ display: 'flex', gap: 6 }}>
                 <input
                   type="text"
-                  placeholder="Song name or artist (e.g. Alan Walker - Faded, Weeknd)..."
+                  placeholder="Song name or artist (e.g. Alan Walker, Weeknd)..."
                   value={onlineQuery}
                   onChange={(e) => setOnlineQuery(e.target.value)}
                   style={{
                     flex: 1,
-                    padding: '7px 12px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-medium)',
+                    padding: '6px 10px',
+                    background: 'var(--bg-main)',
+                    border: 'none',
+                    boxShadow: 'var(--shadow-sm)',
                     borderRadius: 6,
                     color: 'var(--text-primary)',
-                    fontSize: 12.5,
+                    fontSize: 12,
                     outline: 'none',
                   }}
                 />
                 <button
                   type="submit"
-                  className="btn btn-primary"
+                  className="button-primary"
                   disabled={isSearching}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 6 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: 12, fontWeight: 700, borderRadius: 6 }}
                 >
-                  {isSearching ? <Loader2 size={14} className="spin-icon" /> : <Search size={14} />}
+                  {isSearching ? <Loader2 size={13} className="spin-icon" /> : <Search size={13} />}
                   <span>Search</span>
                 </button>
               </form>
             </div>
 
             {/* Direct URL Input */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '1px solid var(--border-light)', paddingLeft: 14, minWidth: 280 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Link size={13} color="#ef4444" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderLeft: '1px solid var(--border-light)', paddingLeft: 12, minWidth: 260 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Link size={12} style={{ color: '#ef4444' }} />
                 Paste URL
               </span>
               <form onSubmit={handlePlayDirectUrl} style={{ display: 'flex', gap: 6 }}>
                 <input
                   type="text"
-                  placeholder="https://music.youtube.com/... or spotify.com/..."
+                  placeholder="https://music.youtube.com/..."
                   value={directUrlInput}
                   onChange={(e) => setDirectUrlInput(e.target.value)}
                   style={{
                     flex: 1,
-                    padding: '7px 10px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-medium)',
+                    padding: '6px 8px',
+                    background: 'var(--bg-main)',
+                    border: 'none',
+                    boxShadow: 'var(--shadow-sm)',
                     borderRadius: 6,
                     color: 'var(--text-primary)',
-                    fontSize: 12,
+                    fontSize: 11.5,
                     outline: 'none',
                   }}
                 />
                 <button
                   type="submit"
-                  className="btn"
+                  className="button-primary"
                   disabled={isDirectLoading || !directUrlInput.trim()}
                   style={{
-                    background: 'var(--primary)',
-                    color: '#fff',
-                    border: 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 5,
-                    padding: '7px 12px',
-                    fontSize: 12,
-                    fontWeight: 600,
+                    gap: 4,
+                    padding: '6px 10px',
+                    fontSize: 11.5,
+                    fontWeight: 700,
                     borderRadius: 6,
                   }}
                 >
-                  {isDirectLoading ? <Loader2 size={13} className="spin-icon" /> : <Play size={13} />}
+                  {isDirectLoading ? <Loader2 size={12} className="spin-icon" /> : <Play size={12} />}
                   <span>Play</span>
                 </button>
               </form>
             </div>
           </div>
 
-          {/* Source Filter Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          {/* Source Filter Pills (Fixed) */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 6 }}>
               <button
                 onClick={() => setOnlineSourceFilter('all')}
                 style={{
-                  padding: '4px 10px',
+                  padding: '3px 9px',
                   borderRadius: 4,
-                  fontSize: 11.5,
-                  fontWeight: 500,
+                  fontSize: 11,
+                  fontWeight: 600,
                   cursor: 'pointer',
                   background: onlineSourceFilter === 'all' ? 'var(--primary)' : 'var(--bg-card)',
                   color: onlineSourceFilter === 'all' ? '#fff' : 'var(--text-secondary)',
-                  border: '1px solid var(--border-medium)',
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
                 All Sources
@@ -1005,14 +1028,15 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               <button
                 onClick={() => setOnlineSourceFilter('youtube')}
                 style={{
-                  padding: '4px 10px',
+                  padding: '3px 9px',
                   borderRadius: 4,
-                  fontSize: 11.5,
-                  fontWeight: 500,
+                  fontSize: 11,
+                  fontWeight: 600,
                   cursor: 'pointer',
                   background: onlineSourceFilter === 'youtube' ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
                   color: onlineSourceFilter === 'youtube' ? '#ef4444' : 'var(--text-secondary)',
-                  border: `1px solid ${onlineSourceFilter === 'youtube' ? '#ef4444' : 'var(--border-medium)'}`,
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
                 YouTube
@@ -1020,396 +1044,103 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               <button
                 onClick={() => setOnlineSourceFilter('spotify')}
                 style={{
-                  padding: '4px 10px',
+                  padding: '3px 9px',
                   borderRadius: 4,
-                  fontSize: 11.5,
-                  fontWeight: 500,
+                  fontSize: 11,
+                  fontWeight: 600,
                   cursor: 'pointer',
                   background: onlineSourceFilter === 'spotify' ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-card)',
                   color: onlineSourceFilter === 'spotify' ? '#22c55e' : 'var(--text-secondary)',
-                  border: `1px solid ${onlineSourceFilter === 'spotify' ? '#22c55e' : 'var(--border-medium)'}`,
+                  border: 'none',
+                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
                 Spotify
               </button>
             </div>
 
-            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
               {filteredOnlineResults.length} tracks found
             </span>
           </div>
 
-          {/* Results Grid */}
-          {isSearching ? (
-            <div style={{ padding: '48px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-              <Loader2 size={30} className="spin-icon" style={{ color: 'var(--primary)' }} />
-              <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>Searching YouTube & Spotify...</span>
-            </div>
-          ) : filteredOnlineResults.length === 0 ? (
-            <div
-              style={{
-                border: '1px dashed var(--border-medium)',
-                background: 'var(--bg-card)',
-                borderRadius: 8,
-                padding: '36px 20px',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <Music size={28} color="var(--text-muted)" />
-              <h4 style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)' }}>No search results</h4>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
-                Type a song name in the search box above or paste any YouTube / Spotify URL.
-              </p>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                gap: 10,
-              }}
-            >
-              {filteredOnlineResults.map((track) => {
-                const isCurrent = playerState.trackPath === track.url && playerState.isPlaying;
-
-                return (
-                  <div
-                    key={track.id}
-                    style={{
-                      background: isCurrent ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-card)',
-                      border: `1px solid ${isCurrent ? 'var(--primary)' : 'var(--border-medium)'}`,
-                      borderRadius: 6,
-                      padding: 10,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                      transition: 'border-color 0.15s ease',
-                      position: 'relative',
-                    }}
-                  >
-                    {/* Top image & badge */}
-                    <div
-                      style={{
-                        position: 'relative',
-                        height: 110,
-                        borderRadius: 4,
-                        overflow: 'hidden',
-                        background: '#0a0a0a',
-                      }}
-                    >
-                      <img
-                        src={track.thumbnail}
-                        alt={track.title}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => {
-                          (e.target as any).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23111" width="100" height="100"/></svg>';
-                        }}
-                      />
-                      <span
-                        style={{
-                          position: 'absolute',
-                          bottom: 6,
-                          right: 6,
-                          padding: '1px 5px',
-                          borderRadius: 3,
-                          background: 'rgba(0, 0, 0, 0.8)',
-                          color: '#fff',
-                          fontSize: 10.5,
-                          fontFamily: 'monospace',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {track.durationFormatted}
-                      </span>
-
-                      {/* Source tag */}
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: 6,
-                          left: 6,
-                          padding: '1px 5px',
-                          borderRadius: 3,
-                          background: track.source === 'spotify' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)',
-                          color: '#fff',
-                          fontSize: 9.5,
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {track.source === 'spotify' ? 'Spotify' : 'YouTube'}
-                      </span>
-                    </div>
-
-                    {/* Meta info */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          color: isCurrent ? 'var(--primary)' : 'var(--text-primary)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                        title={track.title}
-                      >
-                        {track.title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--text-muted)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {track.author} {track.ago ? `• ${track.ago}` : ''}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
-                      <button
-                        onClick={() => handlePlayOnlineTrack(track)}
-                        className="btn"
-                        style={{
-                          flex: 1,
-                          background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
-                          color: isCurrent ? '#fff' : 'var(--success)',
-                          border: `1px solid ${isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.25)'}`,
-                          padding: '5px 8px',
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          borderRadius: 4,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 4,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Play size={12} />
-                        <span>{isCurrent ? 'Playing' : 'Play to VC'}</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleAddOnlineToPlaylist(track)}
-                        className="btn"
-                        style={{
-                          background: 'var(--bg-input)',
-                          border: '1px solid var(--border-medium)',
-                          color: 'var(--text-muted)',
-                          padding: '5px 8px',
-                          borderRadius: 4,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
-                        title="Save to Playlist"
-                      >
-                        <BookmarkPlus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 2: PLAYLIST & LOCAL MUSIC */}
-      {activeTab === 'playlist' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                onClick={handleAddFiles}
-                className="btn btn-primary"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 6 }}
-              >
-                <Upload size={14} />
-                <span>Add Files from PC</span>
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {/* Local Search Input */}
-              <div style={{ position: 'relative', minWidth: 200 }}>
-                <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  type="text"
-                  placeholder="Filter tracks..."
-                  value={localSearchQuery}
-                  onChange={(e) => setLocalSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '6px 10px 6px 26px',
-                    background: 'var(--bg-input)',
-                    border: '1px solid var(--border-medium)',
-                    borderRadius: 6,
-                    color: 'var(--text-primary)',
-                    fontSize: 12,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
+          {/* Results Grid (ONLY THIS SCROLLS!) */}
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              paddingRight: 4,
+            }}
+          >
+            {isSearching ? (
+              <div style={{ padding: '48px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                <Loader2 size={26} className="spin-icon" style={{ color: 'var(--primary)' }} />
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 500 }}>Searching tracks...</span>
               </div>
-
-              {/* View Toggle: Grid / Table */}
+            ) : filteredOnlineResults.length === 0 ? (
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
                   background: 'var(--bg-card)',
-                  border: '1px solid var(--border-medium)',
-                  borderRadius: 6,
-                  padding: 2,
+                  border: '1px solid var(--border-panel)',
+                  borderRadius: 10,
+                  padding: '32px 20px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
-                <button
-                  onClick={() => setPlaylistViewMode('grid')}
-                  style={{
-                    background: playlistViewMode === 'grid' ? 'var(--primary)' : 'transparent',
-                    color: playlistViewMode === 'grid' ? '#fff' : 'var(--text-muted)',
-                    border: 'none',
-                    borderRadius: 4,
-                    padding: '4px 6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  title="Grid View"
-                >
-                  <LayoutGrid size={14} />
-                </button>
-                <button
-                  onClick={() => setPlaylistViewMode('table')}
-                  style={{
-                    background: playlistViewMode === 'table' ? 'var(--primary)' : 'transparent',
-                    color: playlistViewMode === 'table' ? '#fff' : 'var(--text-muted)',
-                    border: 'none',
-                    borderRadius: 4,
-                    padding: '4px 6px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  title="Table View"
-                >
-                  <List size={14} />
-                </button>
+                <Music size={26} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                <h4 style={{ margin: 0, fontSize: 13.5, color: 'var(--text-primary)' }}>No search results</h4>
+                <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  Type a song name in the search box above or paste any YouTube / Spotify URL.
+                </p>
               </div>
-            </div>
-          </div>
-
-          {/* Drag and Drop Zone / Empty State */}
-          {library.length === 0 ? (
-            <div
-              onClick={handleAddFiles}
-              style={{
-                border: `1px dashed ${isDragging ? 'var(--primary)' : 'var(--border-medium)'}`,
-                background: isDragging ? 'rgba(59, 130, 246, 0.06)' : 'var(--bg-card)',
-                borderRadius: 8,
-                padding: '40px 20px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
+            ) : (
               <div
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 6,
-                  background: 'rgba(59, 130, 246, 0.1)',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gap: 10,
                 }}
               >
-                <FolderOpen size={22} />
-              </div>
-              <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                No Tracks in Playlist Yet
-              </h3>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, maxWidth: 380 }}>
-                Click here or drag audio/video files from your PC into this window, or search and bookmark tracks from YouTube & Spotify.
-              </p>
-            </div>
-          ) : playlistViewMode === 'grid' ? (
-            /* COMPACT GRID FORMAT (DEFAULT) */
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                gap: 10,
-              }}
-            >
-              {filteredLibrary.map((track, idx) => {
-                const isCurrent = playerState.trackPath === track.filePath && playerState.isPlaying;
-                const isPreviewing = localAudioPreview?.path === track.filePath && localAudioPreview.isPlaying;
+                {filteredOnlineResults.map((track) => {
+                  const isCurrent = playerState.trackPath === track.url && playerState.isPlaying;
 
-                return (
-                  <div
-                    key={track.id || idx}
-                    style={{
-                      background: isCurrent ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-card)',
-                      border: `1px solid ${isCurrent ? 'var(--primary)' : 'var(--border-medium)'}`,
-                      borderRadius: 6,
-                      padding: 8,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      position: 'relative',
-                    }}
-                  >
-                    {/* Thumbnail / Header Box */}
+                  return (
                     <div
+                      key={track.id}
                       style={{
-                        position: 'relative',
-                        height: 84,
-                        borderRadius: 4,
-                        overflow: 'hidden',
-                        background: track.thumbnail
-                          ? '#0a0a0a'
-                          : 'var(--bg-input)',
+                        background: 'var(--bg-card)',
+                        border: isCurrent ? '1px solid var(--primary)' : '1px solid var(--border-panel)',
+                        borderRadius: 8,
+                        padding: 10,
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: 8,
+                        boxShadow: 'var(--shadow-card)',
                       }}
                     >
-                      {track.thumbnail ? (
+                      {/* Top image & badge */}
+                      <div
+                        style={{
+                          position: 'relative',
+                          height: 100,
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          background: '#0a0a0a',
+                        }}
+                      >
                         <img
                           src={track.thumbnail}
                           alt={track.title}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => {
-                            (e.target as any).style.display = 'none';
+                            (e.target as any).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23111" width="100" height="100"/></svg>';
                           }}
                         />
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: 'var(--primary)' }}>
-                          <FileAudio size={22} />
-                        </div>
-                      )}
-
-                      {/* Duration Tag */}
-                      {track.duration > 0 && (
                         <span
                           style={{
                             position: 'absolute',
@@ -1424,168 +1155,237 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                             fontWeight: 600,
                           }}
                         >
-                          {formatTime(track.duration)}
+                          {track.durationFormatted}
                         </span>
-                      )}
 
-                      {/* Format Badge */}
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: 4,
-                          left: 4,
-                          padding: '1px 4px',
-                          borderRadius: 3,
-                          background:
-                            track.ext === 'SPOTIFY'
-                              ? 'rgba(34, 197, 94, 0.9)'
-                              : track.ext === 'YT-MUSIC'
-                              ? 'rgba(239, 68, 68, 0.9)'
-                              : 'rgba(59, 130, 246, 0.85)',
-                          color: '#fff',
-                          fontSize: 8.5,
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {track.ext || 'AUDIO'}
-                      </span>
-                    </div>
-
-                    {/* Meta info */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: isCurrent ? 'var(--primary)' : 'var(--text-primary)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                        title={track.title}
-                      >
-                        {track.title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: 'var(--text-muted)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {track.author || track.fileName || (track.sizeBytes > 0 ? formatSize(track.sizeBytes) : '')}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto' }}>
-                      <button
-                        onClick={() => handlePlayTrack(track)}
-                        className="btn"
-                        style={{
-                          flex: 1,
-                          background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
-                          color: isCurrent ? '#fff' : 'var(--success)',
-                          border: `1px solid ${isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.25)'}`,
-                          padding: '4px 6px',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          borderRadius: 4,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 3,
-                          cursor: 'pointer',
-                        }}
-                        title="Stream to Discord Voice"
-                      >
-                        <Play size={11} />
-                        <span>{isCurrent ? 'Playing' : 'Play VC'}</span>
-                      </button>
-
-                      {/* Local PC Preview */}
-                      {!track.filePath.startsWith('http') && (
-                        <button
-                          onClick={() => handleTogglePreview(track.filePath)}
-                          className="btn"
+                        {/* Source tag */}
+                        <span
                           style={{
-                            background: isPreviewing ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
-                            color: isPreviewing ? 'var(--primary)' : 'var(--text-muted)',
-                            border: '1px solid var(--border-medium)',
-                            padding: '4px 6px',
+                            position: 'absolute',
+                            top: 4,
+                            left: 4,
+                            padding: '1px 5px',
+                            borderRadius: 3,
+                            background: track.source === 'spotify' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)',
+                            color: '#fff',
+                            fontSize: 9,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {track.source === 'spotify' ? 'Spotify' : 'YouTube'}
+                        </span>
+                      </div>
+
+                      {/* Meta info */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: isCurrent ? 'var(--primary)' : 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={track.title}
+                        >
+                          {track.title}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 10.5,
+                            color: 'var(--text-muted)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {track.author} {track.ago ? `• ${track.ago}` : ''}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
+                        <button
+                          onClick={() => handlePlayOnlineTrack(track)}
+                          style={{
+                            flex: 1,
+                            background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
+                            color: isCurrent ? '#fff' : 'var(--success)',
+                            border: 'none',
+                            padding: '5px 8px',
+                            fontSize: 11,
+                            fontWeight: 700,
                             borderRadius: 4,
-                            cursor: 'pointer',
-                            display: 'flex',
+                            display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            gap: 4,
+                            cursor: 'pointer',
                           }}
-                          title={isPreviewing ? 'Stop Local Preview' : 'Preview on PC Speakers'}
                         >
-                          <Headphones size={11} />
+                          <Play size={11} />
+                          <span>{isCurrent ? 'Playing' : 'Play VC'}</span>
                         </button>
-                      )}
 
-                      {/* Delete */}
-                      <button
-                        onClick={() => handleRemoveTrack(track.id)}
-                        className="btn"
-                        style={{
-                          background: 'transparent',
-                          color: 'var(--text-muted)',
-                          border: 'none',
-                          padding: '4px 5px',
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                        title="Remove Track"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                        <button
+                          onClick={() => handleAddOnlineToPlaylist(track)}
+                          style={{
+                            background: 'var(--bg-main)',
+                            border: 'none',
+                            boxShadow: 'var(--shadow-sm)',
+                            color: 'var(--text-muted)',
+                            padding: '5px 8px',
+                            borderRadius: 4,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                          }}
+                          title="Save to Playlist"
+                        >
+                          <BookmarkPlus size={13} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 2: PLAYLIST & LOCAL MUSIC                            */}
+      {/* ========================================================= */}
+      {activeTab === 'playlist' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
+          {/* Controls Bar (Fixed) */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={handleAddFiles}
+                className="button-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 700, borderRadius: 6 }}
+              >
+                <Upload size={13} />
+                <span>Add Files from PC</span>
+              </button>
             </div>
-          ) : (
-            /* TABLE / LIST VIEW */
-            <div
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-medium)',
-                borderRadius: 6,
-                overflow: 'hidden',
-              }}
-            >
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Local Search Input */}
+              <div style={{ position: 'relative', minWidth: 180 }}>
+                <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Filter tracks..."
+                  value={localSearchQuery}
+                  onChange={(e) => setLocalSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '5px 8px 5px 24px',
+                    background: 'var(--bg-card)',
+                    border: 'none',
+                    boxShadow: 'var(--shadow-sm)',
+                    borderRadius: 6,
+                    color: 'var(--text-primary)',
+                    fontSize: 11.5,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* View Toggle: Grid / Table */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'var(--bg-card)',
+                  boxShadow: 'var(--shadow-sm)',
+                  borderRadius: 6,
+                  padding: 2,
+                }}
+              >
+                <button
+                  onClick={() => setPlaylistViewMode('grid')}
+                  style={{
+                    border: 'none',
+                    borderRadius: 4,
+                    padding: '3px 6px',
+                    background: playlistViewMode === 'grid' ? 'var(--primary)' : 'transparent',
+                    color: playlistViewMode === 'grid' ? '#fff' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <LayoutGrid size={13} />
+                </button>
+                <button
+                  onClick={() => setPlaylistViewMode('table')}
+                  style={{
+                    border: 'none',
+                    borderRadius: 4,
+                    padding: '3px 6px',
+                    background: playlistViewMode === 'table' ? 'var(--primary)' : 'transparent',
+                    color: playlistViewMode === 'table' ? '#fff' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <List size={13} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Playlist Content (ONLY THIS SCROLLS!) */}
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              paddingRight: 4,
+            }}
+          >
+            {library.length === 0 ? (
+              <div
+                onClick={handleAddFiles}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-panel)',
+                  borderRadius: 10,
+                  padding: '36px 20px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: 'var(--shadow-card)',
+                }}
+              >
+                <FolderOpen size={26} style={{ color: 'var(--primary)', opacity: 0.8 }} />
+                <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  No Tracks in Library Yet
+                </h3>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0, maxWidth: 380 }}>
+                  Click here or drag audio files from your PC into this window. Files are automatically saved into permanent app storage.
+                </p>
+              </div>
+            ) : playlistViewMode === 'grid' ? (
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'auto 1fr 90px 70px 130px',
-                  padding: '8px 14px',
-                  background: 'var(--bg-main)',
-                  borderBottom: '1px solid var(--border-medium)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                  color: 'var(--text-muted)',
-                  alignItems: 'center',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                   gap: 10,
                 }}
               >
-                <span style={{ width: 24, textAlign: 'center' }}>#</span>
-                <span>Title</span>
-                <span>Size</span>
-                <span>Duration</span>
-                <span style={{ textAlign: 'right' }}>Actions</span>
-              </div>
-
-              <div style={{ maxHeight: 380, overflowY: 'auto' }}>
                 {filteredLibrary.map((track, idx) => {
                   const isCurrent = playerState.trackPath === track.filePath && playerState.isPlaying;
                   const isPreviewing = localAudioPreview?.path === track.filePath && localAudioPreview.isPlaying;
@@ -1594,222 +1394,494 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                     <div
                       key={track.id || idx}
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'auto 1fr 90px 70px 130px',
-                        padding: '9px 14px',
-                        borderBottom: '1px solid var(--border-light)',
-                        fontSize: 12.5,
-                        color: 'var(--text-primary)',
-                        alignItems: 'center',
-                        gap: 10,
-                        background: isCurrent ? 'rgba(59, 130, 246, 0.06)' : 'transparent',
-                        transition: 'background-color 0.12s ease',
+                        background: 'var(--bg-card)',
+                        border: isCurrent ? '1px solid var(--primary)' : '1px solid var(--border-panel)',
+                        borderRadius: 8,
+                        padding: 8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                        boxShadow: 'var(--shadow-card)',
                       }}
                     >
-                      <span style={{ width: 24, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>
-                        {idx + 1}
-                      </span>
+                      <div
+                        style={{
+                          position: 'relative',
+                          height: 80,
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          background: track.thumbnail ? '#0a0a0a' : 'var(--bg-main)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {track.thumbnail ? (
+                          <img
+                            src={track.thumbnail}
+                            alt={track.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              (e.target as any).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <FileAudio size={20} style={{ color: 'var(--primary)' }} />
+                        )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                        <div
+                        {track.duration > 0 && (
+                          <span
+                            style={{
+                              position: 'absolute',
+                              bottom: 4,
+                              right: 4,
+                              padding: '1px 4px',
+                              borderRadius: 3,
+                              background: 'rgba(0, 0, 0, 0.8)',
+                              color: '#fff',
+                              fontSize: 9,
+                              fontFamily: 'monospace',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {formatTime(track.duration)}
+                          </span>
+                        )}
+
+                        <span
                           style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: 4,
-                            background: isCurrent ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
-                            color: isCurrent ? 'var(--primary)' : 'var(--text-muted)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
+                            position: 'absolute',
+                            top: 4,
+                            left: 4,
+                            padding: '1px 4px',
+                            borderRadius: 3,
+                            background:
+                              track.ext === 'SPOTIFY'
+                                ? 'rgba(34, 197, 94, 0.9)'
+                                : track.ext === 'YT-MUSIC'
+                                ? 'rgba(239, 68, 68, 0.9)'
+                                : 'rgba(88, 101, 242, 0.85)',
+                            color: '#fff',
+                            fontSize: 8,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
                           }}
                         >
-                          <FileAudio size={14} />
+                          {track.ext || 'AUDIO'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: isCurrent ? 'var(--primary)' : 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={track.title}
+                        >
+                          {track.title}
                         </div>
-                        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontWeight: 600, color: isCurrent ? 'var(--primary)' : 'var(--text-primary)' }}>
-                            {track.title}
-                          </div>
-                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
-                            {track.author || track.fileName}
-                          </div>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: 'var(--text-muted)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {track.author || track.fileName || (track.sizeBytes > 0 ? formatSize(track.sizeBytes) : '')}
                         </div>
                       </div>
 
-                      <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                        {track.sizeBytes > 0 ? formatSize(track.sizeBytes) : 'Online'}
-                      </span>
-
-                      <span style={{ fontSize: 11.5, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
-                        {formatTime(track.duration)}
-                      </span>
-
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-                        {/* Play into VC */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto' }}>
                         <button
                           onClick={() => handlePlayTrack(track)}
-                          className="btn"
                           style={{
+                            flex: 1,
                             background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
                             color: isCurrent ? '#fff' : 'var(--success)',
-                            border: `1px solid ${isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.25)'}`,
-                            padding: '3px 8px',
-                            fontSize: 11.5,
-                            fontWeight: 600,
+                            border: 'none',
+                            padding: '4px 6px',
+                            fontSize: 10.5,
+                            fontWeight: 700,
                             borderRadius: 4,
                             display: 'inline-flex',
                             alignItems: 'center',
+                            justifyContent: 'center',
                             gap: 3,
+                            cursor: 'pointer',
                           }}
-                          title="Stream to Voice Channel"
                         >
-                          <Play size={11} />
+                          <Play size={10} />
                           <span>{isCurrent ? 'Playing' : 'Play VC'}</span>
                         </button>
 
-                        {/* Local PC Preview */}
                         {!track.filePath.startsWith('http') && (
                           <button
                             onClick={() => handleTogglePreview(track.filePath)}
-                            className="btn"
                             style={{
-                              background: isPreviewing ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
+                              background: isPreviewing ? 'rgba(88, 101, 242, 0.15)' : 'var(--bg-main)',
                               color: isPreviewing ? 'var(--primary)' : 'var(--text-muted)',
-                              border: '1px solid var(--border-medium)',
-                              padding: '3px 6px',
+                              border: 'none',
+                              boxShadow: 'var(--shadow-sm)',
+                              padding: '4px 6px',
                               borderRadius: 4,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
                             }}
                             title={isPreviewing ? 'Stop Local Preview' : 'Preview on PC Speakers'}
                           >
-                            <Headphones size={12} />
+                            <Headphones size={11} />
                           </button>
                         )}
 
-                        {/* Remove */}
                         <button
                           onClick={() => handleRemoveTrack(track.id)}
-                          className="btn"
                           style={{
                             background: 'transparent',
                             color: 'var(--text-muted)',
                             border: 'none',
-                            padding: '3px 5px',
+                            padding: '4px 4px',
                             borderRadius: 4,
                             cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
                           }}
                           title="Remove Track"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={11} />
                         </button>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
+            ) : (
+              <div
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-panel)',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  boxShadow: 'var(--shadow-card)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto 1fr 90px 70px 130px',
+                    padding: '8px 14px',
+                    background: 'var(--bg-main)',
+                    borderBottom: '1px solid var(--border-light)',
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: 'var(--text-muted)',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ width: 24, textAlign: 'center' }}>#</span>
+                  <span>Title</span>
+                  <span>Size</span>
+                  <span>Duration</span>
+                  <span style={{ textAlign: 'right' }}>Actions</span>
+                </div>
+
+                <div>
+                  {filteredLibrary.map((track, idx) => {
+                    const isCurrent = playerState.trackPath === track.filePath && playerState.isPlaying;
+                    const isPreviewing = localAudioPreview?.path === track.filePath && localAudioPreview.isPlaying;
+
+                    return (
+                      <div
+                        key={track.id || idx}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr 90px 70px 130px',
+                          padding: '8px 14px',
+                          borderBottom: '1px solid var(--border-light)',
+                          fontSize: 12,
+                          color: 'var(--text-primary)',
+                          alignItems: 'center',
+                          gap: 10,
+                          background: isCurrent ? 'rgba(88, 101, 242, 0.06)' : 'transparent',
+                        }}
+                      >
+                        <span style={{ width: 24, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>
+                          {idx + 1}
+                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <FileAudio size={14} style={{ color: isCurrent ? 'var(--primary)' : 'var(--text-muted)', flexShrink: 0 }} />
+                          <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontWeight: 600, color: isCurrent ? 'var(--primary)' : 'var(--text-primary)' }}>
+                              {track.title}
+                            </div>
+                            <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
+                              {track.author || track.fileName}
+                            </div>
+                          </div>
+                        </div>
+
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {track.sizeBytes > 0 ? formatSize(track.sizeBytes) : 'Online'}
+                        </span>
+
+                        <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                          {formatTime(track.duration)}
+                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                          <button
+                            onClick={() => handlePlayTrack(track)}
+                            style={{
+                              background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
+                              color: isCurrent ? '#fff' : 'var(--success)',
+                              border: 'none',
+                              padding: '3px 8px',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              borderRadius: 4,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 3,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Play size={10} />
+                            <span>{isCurrent ? 'Playing' : 'Play VC'}</span>
+                          </button>
+
+                          {!track.filePath.startsWith('http') && (
+                            <button
+                              onClick={() => handleTogglePreview(track.filePath)}
+                              style={{
+                                background: isPreviewing ? 'rgba(88, 101, 242, 0.15)' : 'var(--bg-main)',
+                                color: isPreviewing ? 'var(--primary)' : 'var(--text-muted)',
+                                border: 'none',
+                                boxShadow: 'var(--shadow-sm)',
+                                padding: '3px 6px',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                              }}
+                              title={isPreviewing ? 'Stop Local Preview' : 'Preview on PC Speakers'}
+                            >
+                              <Headphones size={11} />
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => handleRemoveTrack(track.id)}
+                            style={{
+                              background: 'transparent',
+                              color: 'var(--text-muted)',
+                              border: 'none',
+                              padding: '3px 5px',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                            }}
+                            title="Remove Track"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Tab 3: Soundboard Content */}
+      {/* ========================================================= */}
+      {/* TAB 3: SOUNDBOARD CONTENT (0 Files default, User can add) */}
+      {/* ========================================================= */}
       {activeTab === 'soundboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Category Filter Buttons */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {categories.map((cat) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
+          {/* Header Bar with Add Sound Button & Categories */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                onClick={handleAddSoundboardSound}
+                className="button-primary"
                 style={{
-                  padding: '4px 10px',
-                  borderRadius: 4,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '5px 12px',
+                  borderRadius: 6,
                   fontSize: 11.5,
-                  fontWeight: 500,
+                  fontWeight: 700,
                   cursor: 'pointer',
-                  background: selectedCategory === cat ? 'var(--primary)' : 'var(--bg-card)',
-                  color: selectedCategory === cat ? '#fff' : 'var(--text-secondary)',
-                  border: `1px solid ${selectedCategory === cat ? 'var(--primary)' : 'var(--border-medium)'}`,
-                  textTransform: 'capitalize',
-                  transition: 'all 0.12s ease',
                 }}
               >
-                {cat}
+                <Plus size={13} />
+                <span>Add Sound to Soundboard</span>
               </button>
-            ))}
+
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  style={{
+                    padding: '3px 9px',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: selectedCategory === cat ? 'var(--primary)' : 'var(--bg-card)',
+                    color: selectedCategory === cat ? '#fff' : 'var(--text-secondary)',
+                    border: 'none',
+                    boxShadow: 'var(--shadow-sm)',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              {presets.length} active soundpad button(s)
+            </span>
           </div>
 
-          {/* Soundboard Cards Grid */}
+          {/* Soundboard Cards Grid (ONLY THIS SCROLLS!) */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: 10,
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              paddingRight: 4,
             }}
           >
-            {filteredPresets.map((preset) => {
-              const isPlaying = playerState.trackPath === preset.filePath && playerState.isPlaying;
+            {presets.length === 0 ? (
+              <div
+                onClick={handleAddSoundboardSound}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-panel)',
+                  borderRadius: 10,
+                  padding: '36px 20px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: 'var(--shadow-card)',
+                }}
+              >
+                <Sparkles size={26} style={{ color: 'var(--primary)', opacity: 0.8 }} />
+                <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  Soundpad is Empty (0 Sounds)
+                </h3>
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: 0, maxWidth: 380 }}>
+                  Click here or the "Add Sound" button above to add custom SFX, meme audios, or sound effects from your PC into your soundboard.
+                </p>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                  gap: 10,
+                }}
+              >
+                {filteredPresets.map((preset) => {
+                  const isPlaying = playerState.trackPath === preset.filePath && playerState.isPlaying;
 
-              return (
-                <div
-                  key={preset.id}
-                  onClick={() => handlePlayTrack(preset)}
-                  style={{
-                    background: isPlaying ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-card)',
-                    border: `1px solid ${isPlaying ? 'var(--primary)' : 'var(--border-medium)'}`,
-                    borderRadius: 6,
-                    padding: '12px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
-                    transition: 'border-color 0.15s ease',
-                  }}
-                  className="soundboard-card"
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  return (
                     <div
+                      key={preset.id}
+                      onClick={() => handlePlayTrack(preset)}
                       style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 6,
-                        background: 'var(--bg-input)',
+                        background: isPlaying ? 'rgba(88, 101, 242, 0.08)' : 'var(--bg-card)',
+                        border: isPlaying ? '1px solid var(--primary)' : '1px solid var(--border-panel)',
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        boxShadow: 'var(--shadow-card)',
                       }}
+                      className="soundboard-card"
                     >
-                      {getPresetIcon(preset.icon)}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {preset.name}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 6,
+                            background: 'var(--bg-main)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            color: 'var(--primary)',
+                          }}
+                        >
+                          {getPresetIcon(preset.icon)}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {preset.name}
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                            {preset.category} • {preset.duration}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>
-                        {preset.category} • {preset.duration}
-                      </div>
-                    </div>
-                  </div>
 
-                  <div
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 4,
-                      background: isPlaying ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
-                      color: isPlaying ? '#fff' : 'var(--text-muted)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Play size={12} style={{ marginLeft: 1 }} />
-                  </div>
-                </div>
-              );
-            })}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        <div
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 4,
+                            background: isPlaying ? 'var(--primary)' : 'var(--bg-main)',
+                            color: isPlaying ? '#fff' : 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Play size={11} style={{ marginLeft: 1 }} />
+                        </div>
+
+                        <button
+                          onClick={(e) => handleRemoveSoundboardSound(preset.id, e)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: 3,
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                          title="Remove from Soundboard"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

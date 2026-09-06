@@ -35,19 +35,33 @@ async function build() {
     minify: true,
   });
 
-  // Copy ffmpeg.exe and opusscript wasm assets to dist/main
+  // Copy ffmpeg.exe, yt-dlp.exe, and opusscript wasm assets to dist/main and bin
   try {
     const fs = require('fs');
     const destDir = path.resolve(__dirname, '../dist/main');
+    const binDir = path.resolve(__dirname, '../bin');
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+    if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true });
 
+    // Copy ffmpeg.exe
     const srcFfmpeg = path.resolve(__dirname, '../node_modules/ffmpeg-static/ffmpeg.exe');
     const destFfmpeg = path.join(destDir, 'ffmpeg.exe');
+    const binFfmpeg = path.join(binDir, 'ffmpeg.exe');
     if (fs.existsSync(srcFfmpeg)) {
       fs.copyFileSync(srcFfmpeg, destFfmpeg);
-      console.log('Copied ffmpeg.exe to dist/main/ffmpeg.exe');
+      fs.copyFileSync(srcFfmpeg, binFfmpeg);
+      console.log('Copied ffmpeg.exe to dist/main/ffmpeg.exe and bin/ffmpeg.exe');
     }
 
+    // Copy yt-dlp.exe
+    const srcYtDlp = path.join(binDir, 'yt-dlp.exe');
+    const destYtDlp = path.join(destDir, 'yt-dlp.exe');
+    if (fs.existsSync(srcYtDlp)) {
+      fs.copyFileSync(srcYtDlp, destYtDlp);
+      console.log('Copied yt-dlp.exe to dist/main/yt-dlp.exe');
+    }
+
+    // Copy opusscript assets
     const opusBuild = path.resolve(__dirname, '../node_modules/opusscript/build');
     if (fs.existsSync(opusBuild)) {
       const files = fs.readdirSync(opusBuild);

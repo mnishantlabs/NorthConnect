@@ -21,8 +21,8 @@ import {
   ChevronRight,
   Flame,
 } from 'lucide-react';
-import type { Token } from '../../../shared/types';
-import { status, displayName } from '../../../shared/predicates';
+import type { Token } from '@shared/types';
+import { status, displayName } from '@shared/predicates';
 import { CustomSelect, type SelectOption } from './CustomSelect';
 
 interface ToolsViewProps {
@@ -83,7 +83,7 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
       category: 'guild',
       icon: PlusCircle,
       iconColor: 'var(--primary)',
-      iconBg: 'rgba(59, 130, 246, 0.12)',
+      iconBg: 'rgba(88, 101, 242, 0.12)',
       status: 'coming_soon',
       tags: ['Invite Auto-Resolve', 'Proxy Routing', 'Multi-Account'],
     },
@@ -292,6 +292,7 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
 
   return (
     <div
+      className="fade-in"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -299,10 +300,10 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
         padding: '24px 28px',
         boxSizing: 'border-box',
         overflowY: 'auto',
-        gap: 20,
+        gap: '20px',
       }}
     >
-      {/* Top Header & Search */}
+      {/* 1. Header Bar (Matches Home) */}
       <div
         style={{
           display: 'flex',
@@ -310,65 +311,61 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: 16,
-          borderBottom: '1px solid var(--border-medium)',
-          paddingBottom: 18,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div
+        <div>
+          <h1
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: 'rgba(59, 130, 246, 0.12)',
-              color: 'var(--primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid rgba(59, 130, 246, 0.25)',
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: '-0.025em',
+              margin: 0,
+              color: 'var(--text-primary)',
             }}
           >
-            <Wrench size={22} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                Tools & Automation Hub
-              </h1>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: 12,
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  color: 'var(--primary)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                }}
-              >
-                {toolCards.length} Tools
-              </span>
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-              Mass Discord operations, guild cleaner, utility bots, and token automation
-            </p>
+            Tools & Automation
+          </h1>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 12.5,
+              color: 'var(--text-muted)',
+              marginTop: 4,
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              <strong style={{ color: 'var(--text-secondary)' }}>{toolCards.length}</strong> Utilities Available
+            </span>
+            <span>·</span>
+            <span>
+              <strong style={{ color: 'var(--text-secondary)' }}>{valid.length}</strong> Target Accounts
+            </span>
+            <span>·</span>
+            <span>
+              <strong style={{ color: 'var(--text-secondary)' }}>{targetServers.length}</strong> Detected Servers
+            </span>
           </div>
         </div>
 
-        {/* Search & Category Filter */}
+        {/* Quick Search & Category Filter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               background: 'var(--bg-card)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: 8,
-              padding: '6px 12px',
-              width: 220,
+              border: 'none',
+              boxShadow: 'var(--shadow-sm)',
+              borderRadius: 6,
+              padding: '0 10px',
+              height: 34,
+              width: 200,
             }}
           >
-            <Search size={14} style={{ color: 'var(--text-muted)', marginRight: 8 }} />
+            <Search size={13} style={{ color: 'var(--text-muted)', marginRight: 6 }} />
             <input
               type="text"
               placeholder="Search tools..."
@@ -379,13 +376,22 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
                 border: 'none',
                 outline: 'none',
                 color: 'var(--text-primary)',
-                fontSize: 12.5,
+                fontSize: 12,
                 width: '100%',
+                fontFamily: 'inherit',
               }}
             />
           </div>
 
-          <div style={{ display: 'flex', background: 'var(--bg-card)', padding: 3, borderRadius: 8, border: '1px solid var(--border-medium)' }}>
+          <div
+            style={{
+              display: 'flex',
+              background: 'var(--bg-main)',
+              padding: 2,
+              borderRadius: 6,
+              boxShadow: 'var(--shadow-sm)',
+            }}
+          >
             {[
               { id: 'all', label: 'All' },
               { id: 'guild', label: 'Guilds' },
@@ -397,14 +403,14 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
                 onClick={() => setCategoryFilter(cat.id)}
                 style={{
                   padding: '5px 12px',
-                  borderRadius: 6,
+                  borderRadius: 4,
                   border: 'none',
                   background: categoryFilter === cat.id ? 'var(--primary)' : 'transparent',
                   color: categoryFilter === cat.id ? '#ffffff' : 'var(--text-secondary)',
-                  fontSize: 12,
+                  fontSize: 11.5,
                   fontWeight: 600,
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  transition: 'all 0.12s ease',
                 }}
               >
                 {cat.label}
@@ -414,13 +420,89 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
         </div>
       </div>
 
-      {/* Modular Tools Grid */}
+      {/* 2. Top Metric Cards (Matches Home) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 14,
+        }}
+      >
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Utilities Library</span>
+            <Wrench size={14} style={{ color: 'var(--primary)' }} />
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {toolCards.length}{' '}
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>tools</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 10 }}>
+            <span>Bulk Discord actions & automation</span>
+          </div>
+        </div>
+
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Target Accounts</span>
+            <User size={14} style={{ color: 'var(--text-muted)' }} />
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {valid.length}{' '}
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>ready</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 10 }}>
+            <span>Authenticated tokens available for execution</span>
+          </div>
+        </div>
+
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-panel)',
+            borderRadius: 10,
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-card)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Safety Engine</span>
+            <ShieldCheck size={14} style={{ color: '#10b981' }} />
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#10b981', lineHeight: 1 }}>
+            Active
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 10 }}>
+            <span>Whitelist protection & delay rate-limiting</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Modular Tools Grid (Card Design matching Home) */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
           gap: 16,
-          alignContent: 'start',
         }}
       >
         {filteredToolCards.map((tool) => {
@@ -438,40 +520,26 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
               }}
               style={{
                 background: 'var(--bg-card)',
-                border: '1px solid var(--border-medium)',
-                borderRadius: 14,
+                border: '1px solid var(--border-panel)',
+                borderRadius: 10,
                 padding: '20px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 cursor: isAvailable ? 'pointer' : 'default',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.15s ease',
                 position: 'relative',
-                overflow: 'hidden',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-              onMouseEnter={(e) => {
-                if (isAvailable) {
-                  e.currentTarget.style.borderColor = 'var(--primary)';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (isAvailable) {
-                  e.currentTarget.style.borderColor = 'var(--border-medium)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                }
+                boxShadow: 'var(--shadow-card)',
+                minHeight: 180,
               }}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 10,
+                      width: 36,
+                      height: 36,
+                      borderRadius: 8,
                       background: tool.iconBg,
                       color: tool.iconColor,
                       display: 'flex',
@@ -479,60 +547,42 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
                       justifyContent: 'center',
                     }}
                   >
-                    <Icon size={20} />
+                    <Icon size={18} />
                   </div>
 
-                  {isAvailable ? (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: '3px 9px',
-                        borderRadius: 12,
-                        background: 'rgba(16, 185, 129, 0.15)',
-                        color: 'var(--success)',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                      }}
-                    >
-                      Ready to Use
-                    </span>
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: '3px 9px',
-                        borderRadius: 12,
-                        background: 'rgba(168, 85, 247, 0.12)',
-                        color: '#c084fc',
-                        border: '1px solid rgba(168, 85, 247, 0.25)',
-                      }}
-                    >
-                      Coming Soon
-                    </span>
-                  )}
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 12,
+                      background: isAvailable ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-main)',
+                      color: isAvailable ? '#10b981' : 'var(--text-muted)',
+                      border: isAvailable ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-light)',
+                    }}
+                  >
+                    {isAvailable ? 'Ready to Use' : 'In Development'}
+                  </span>
                 </div>
 
-                <h3 style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
+                <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
                   {tool.title}
                 </h3>
-                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 16px 0' }}>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px 0', lineHeight: 1.45 }}>
                   {tool.description}
                 </p>
 
-                {/* Tags */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                  {tool.tags.map((tag, idx) => (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {tool.tags.map((tag) => (
                     <span
-                      key={idx}
+                      key={tag}
                       style={{
                         fontSize: 10.5,
                         fontWeight: 600,
-                        padding: '2px 7px',
-                        borderRadius: 6,
+                        color: 'var(--text-muted)',
                         background: 'var(--bg-main)',
-                        color: 'var(--text-secondary)',
-                        border: '1px solid var(--border-light)',
+                        padding: '2px 7px',
+                        borderRadius: 4,
                       }}
                     >
                       {tag}
@@ -541,7 +591,6 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
                 </div>
               </div>
 
-              {/* Action footer */}
               <div
                 style={{
                   display: 'flex',
@@ -551,15 +600,21 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
                   paddingTop: 12,
                 }}
               >
-                <span style={{ fontSize: 12, fontWeight: 600, color: isAvailable ? 'var(--primary)' : 'var(--text-muted)' }}>
-                  {isAvailable ? 'Click to Launch' : 'In Development'}
-                </span>
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: isAvailable ? 'var(--primary)' : 'var(--text-muted)',
+                  }}
+                >
+                  {isAvailable ? 'Open Tool' : 'Coming Soon'}
+                </div>
                 <div
                   style={{
                     width: 28,
                     height: 28,
                     borderRadius: '50%',
-                    background: isAvailable ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-main)',
+                    background: isAvailable ? 'rgba(88, 101, 242, 0.12)' : 'var(--bg-main)',
                     color: isAvailable ? 'var(--primary)' : 'var(--text-muted)',
                     display: 'flex',
                     alignItems: 'center',
@@ -765,7 +820,7 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ tokens, onRefresh }) => {
                           fontWeight: 700,
                           padding: '2px 8px',
                           borderRadius: 10,
-                          background: 'rgba(59, 130, 246, 0.12)',
+                          background: 'rgba(88, 101, 242, 0.12)',
                           color: 'var(--primary)',
                         }}
                       >

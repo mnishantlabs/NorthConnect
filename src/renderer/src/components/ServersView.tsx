@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Server, Users, Search, Copy } from 'lucide-react';
-import type { Token } from '../../../shared/types';
-import { status } from '../../../shared/predicates';
+import type { Token } from '@shared/types';
+import { status } from '@shared/predicates';
 
 interface ServersViewProps {
   tokens: Token[];
