@@ -416,13 +416,13 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
     <div
       className="play-container fade-in"
       style={{
-        padding: '24px 28px',
+        padding: '20px 24px',
         overflowY: 'auto',
         height: '100%',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: '16px',
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -433,11 +433,11 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
         <div
           style={{
             position: 'fixed',
-            top: 24,
-            right: 28,
+            top: 20,
+            right: 24,
             zIndex: 9999,
-            padding: '10px 18px',
-            borderRadius: 10,
+            padding: '8px 16px',
+            borderRadius: 6,
             background:
               notification.type === 'success'
                 ? 'rgba(16, 185, 129, 0.95)'
@@ -445,15 +445,15 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 ? 'rgba(239, 68, 68, 0.95)'
                 : 'rgba(59, 130, 246, 0.95)',
             color: '#fff',
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: 600,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
             display: 'flex',
             alignItems: 'center',
             gap: 8,
           }}
         >
-          {notification.type === 'success' ? <CheckCircle2 size={16} /> : <Radio size={16} />}
+          {notification.type === 'success' ? <CheckCircle2 size={15} /> : <Radio size={15} />}
           <span>{notification.msg}</span>
         </div>
       )}
@@ -465,52 +465,52 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
           alignItems: 'center',
           justifyContent: 'space-between',
           background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          padding: '16px 20px',
+          border: '1px solid var(--border-medium)',
+          borderRadius: 8,
+          padding: '12px 16px',
           flexWrap: 'wrap',
-          gap: 14,
+          gap: 12,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: connected.size > 0 ? 'rgba(59, 130, 246, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-              border: `1px solid ${connected.size > 0 ? 'rgba(59, 130, 246, 0.3)' : 'rgba(234, 179, 8, 0.3)'}`,
-              color: connected.size > 0 ? 'var(--accent)' : 'var(--warning)',
+              width: 36,
+              height: 36,
+              borderRadius: 6,
+              background: connected.size > 0 ? 'rgba(59, 130, 246, 0.12)' : 'rgba(234, 179, 8, 0.12)',
+              border: `1px solid ${connected.size > 0 ? 'rgba(59, 130, 246, 0.25)' : 'rgba(234, 179, 8, 0.25)'}`,
+              color: connected.size > 0 ? 'var(--primary)' : 'var(--warning)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            {connected.size > 0 ? <Radio size={22} className="pulse-icon" /> : <Headphones size={22} />}
+            {connected.size > 0 ? <Radio size={18} /> : <Headphones size={18} />}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+              <h2 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                 {connected.size > 0 ? 'Voice Audio Streamer & Soundboard' : 'Voice Disconnected'}
               </h2>
               <span
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: 12,
-                  background: connected.size > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  background: connected.size > 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                   color: connected.size > 0 ? 'var(--success)' : 'var(--danger)',
-                  border: `1px solid ${connected.size > 0 ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+                  border: `1px solid ${connected.size > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
                 }}
               >
                 {connected.size} Connected in VC
               </span>
             </div>
-            <p style={{ margin: '3px 0 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+            <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
               {connected.size > 0
-                ? 'Stream YouTube Music, Spotify tracks, and local audio directly into your active voice channels.'
-                : 'Connect your tokens to a voice channel in the Connect tab to begin broadcasting audio into Discord.'}
+                ? 'Stream YouTube Music, Spotify tracks, and local audio directly into active voice channels.'
+                : 'Connect accounts to a voice channel in the Connect tab to begin broadcasting.'}
             </p>
           </div>
         </div>
@@ -519,33 +519,33 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
           <button
             className="btn btn-primary"
             onClick={() => onNavigate('connect')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', fontSize: 13 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, borderRadius: 6 }}
           >
             <span>Go to Connect</span>
-            <ArrowRight size={14} />
+            <ArrowRight size={13} />
           </button>
         )}
 
         {connected.size > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Broadcast Target:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 500 }}>Target:</span>
             <select
               value={playerState.targetToken}
               onChange={(e) => handleTargetChange(e.target.value)}
               className="select-input"
               style={{
                 background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-main)',
-                padding: '6px 12px',
-                borderRadius: 8,
+                border: '1px solid var(--border-medium)',
+                color: 'var(--text-primary)',
+                padding: '5px 10px',
+                borderRadius: 6,
                 fontSize: 12,
-                fontWeight: 600,
+                fontWeight: 500,
                 outline: 'none',
                 cursor: 'pointer',
               }}
             >
-              <option value="all">🔊 All Connected Tokens ({connected.size})</option>
+              <option value="all">🔊 All Connected Accounts ({connected.size})</option>
               {connectedList.map((t) => (
                 <option key={t.token} value={t.token}>
                   👤 {t.username || `${t.token.slice(0, 8)}...`}
@@ -560,44 +560,41 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
       <div
         className="card"
         style={{
-          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, var(--bg-card) 100%)',
-          border: '1px solid rgba(59, 130, 246, 0.25)',
-          borderRadius: 16,
-          padding: '20px 24px',
-          boxShadow: '0 8px 24px -8px rgba(0, 0, 0, 0.3)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-medium)',
+          borderRadius: 8,
+          padding: '16px 18px',
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 12,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
             {/* Album / Track Art Preview */}
             <div
               style={{
-                width: 54,
-                height: 54,
-                borderRadius: 12,
+                width: 46,
+                height: 46,
+                borderRadius: 6,
                 background: playerState.thumbnail
                   ? `url(${playerState.thumbnail}) center/cover no-repeat`
                   : playerState.isPlaying && !playerState.isPaused
-                  ? 'linear-gradient(135deg, var(--accent) 0%, #2563eb 100%)'
-                  : 'rgba(255, 255, 255, 0.06)',
+                  ? 'var(--primary)'
+                  : 'var(--bg-input)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: playerState.isPlaying && !playerState.isPaused
-                  ? '0 0 20px rgba(59, 130, 246, 0.45)'
-                  : 'none',
                 flexShrink: 0,
                 overflow: 'hidden',
                 position: 'relative',
+                border: '1px solid var(--border-light)',
               }}
             >
               {!playerState.thumbnail && (
                 <Disc3
-                  size={28}
+                  size={22}
                   style={{
                     animation: playerState.isPlaying && !playerState.isPaused ? 'spin 3s linear infinite' : 'none',
                   }}
@@ -609,28 +606,28 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <h3
                   style={{
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: 700,
                     margin: 0,
-                    color: playerState.trackName ? 'var(--text-main)' : 'var(--text-muted)',
+                    color: playerState.trackName ? 'var(--text-primary)' : 'var(--text-muted)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     maxWidth: 380,
                   }}
                 >
-                  {playerState.trackName || 'No track streaming'}
+                  {playerState.trackName || 'No track playing'}
                 </h3>
 
                 {/* Source Badge */}
                 {playerState.sourceType === 'spotify' && (
                   <span
                     style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      padding: '2px 6px',
-                      borderRadius: 6,
-                      background: 'rgba(34, 197, 94, 0.2)',
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      borderRadius: 3,
+                      background: 'rgba(34, 197, 94, 0.15)',
                       color: '#22c55e',
                       textTransform: 'uppercase',
                     }}
@@ -641,56 +638,55 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 {playerState.sourceType === 'youtube' && (
                   <span
                     style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      padding: '2px 6px',
-                      borderRadius: 6,
-                      background: 'rgba(239, 68, 68, 0.2)',
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      borderRadius: 3,
+                      background: 'rgba(239, 68, 68, 0.15)',
                       color: '#ef4444',
                       textTransform: 'uppercase',
                     }}
                   >
-                    YouTube Music
+                    YouTube
                   </span>
                 )}
 
                 {playerState.isPlaying && (
                   <span
                     style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      padding: '2px 6px',
-                      borderRadius: 6,
-                      background: playerState.isPaused ? 'rgba(234, 179, 8, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      borderRadius: 3,
+                      background: playerState.isPaused ? 'rgba(234, 179, 8, 0.15)' : 'rgba(16, 185, 129, 0.15)',
                       color: playerState.isPaused ? 'var(--warning)' : 'var(--success)',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
                     }}
                   >
-                    {playerState.isPaused ? 'Paused' : 'Streaming in VC'}
+                    {playerState.isPaused ? 'Paused' : 'Playing'}
                   </span>
                 )}
               </div>
 
-              <p style={{ margin: '3px 0 0 0', fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <p style={{ margin: '2px 0 0 0', fontSize: 11.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {playerState.author ? `${playerState.author} • ` : ''}
                 {playerState.isPlaying
-                  ? `Broadcasting via ${playerState.targetToken === 'all' ? `All Connected Tokens (${connected.size})` : `Token ${playerState.targetToken.slice(0, 8)}...`}`
+                  ? `Broadcasting via ${playerState.targetToken === 'all' ? `All Accounts (${connected.size})` : `Selected Account`}`
                   : 'Search YouTube Music or Spotify below or paste any music link to start streaming.'}
               </p>
             </div>
           </div>
 
           {/* Visualizer Wave Bars */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, height: 26 }}>
-            {[40, 70, 90, 60, 100, 50, 80, 45, 95, 65, 35, 75].map((h, i) => (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, height: 20 }}>
+            {[30, 60, 85, 50, 95, 45, 75, 40, 90, 55, 30, 70].map((h, i) => (
               <div
                 key={i}
                 style={{
-                  width: 3,
+                  width: 2.5,
                   height: playerState.isPlaying && !playerState.isPaused ? `${h}%` : '15%',
-                  background: playerState.isPlaying && !playerState.isPaused ? 'var(--accent)' : 'var(--border)',
-                  borderRadius: 2,
+                  background: playerState.isPlaying && !playerState.isPaused ? 'var(--primary)' : 'var(--border-medium)',
+                  borderRadius: 1,
                   transition: 'height 0.2s ease',
                   animation: playerState.isPlaying && !playerState.isPaused ? `pulseWave 0.8s ease-in-out infinite alternate ${i * 0.08}s` : 'none',
                 }}
@@ -700,9 +696,9 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
         </div>
 
         {/* Progress Scrub Bar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 38 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 34 }}>
               {formatTime(playerState.currentTime)}
             </span>
             <input
@@ -715,65 +711,66 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               style={{
                 flex: 1,
                 cursor: playerState.isPlaying ? 'pointer' : 'default',
-                accentColor: 'var(--accent)',
-                height: 5,
+                accentColor: 'var(--primary)',
+                height: 4,
               }}
             />
-            <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 38, textAlign: 'right' }}>
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', minWidth: 34, textAlign: 'right' }}>
               {formatTime(playerState.duration)}
             </span>
           </div>
         </div>
 
         {/* Player Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               onClick={handleTogglePlayPause}
               className="btn btn-primary"
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: '50%',
+                width: 32,
+                height: 32,
+                borderRadius: 6,
                 padding: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
               }}
               title={playerState.isPlaying && !playerState.isPaused ? 'Pause' : 'Play'}
             >
-              {playerState.isPlaying && !playerState.isPaused ? <Pause size={18} /> : <Play size={18} style={{ marginLeft: 2 }} />}
+              {playerState.isPlaying && !playerState.isPaused ? <Pause size={15} /> : <Play size={15} style={{ marginLeft: 1 }} />}
             </button>
 
             <button
               onClick={handleStop}
               className="btn btn-secondary"
               style={{
-                width: 38,
-                height: 38,
-                borderRadius: '50%',
+                width: 32,
+                height: 32,
+                borderRadius: 6,
                 padding: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-medium)',
               }}
               disabled={!playerState.isPlaying}
               title="Stop"
             >
-              <Square size={16} />
+              <Square size={13} />
             </button>
 
             <button
               onClick={handleToggleLoop}
               className="btn"
               style={{
-                background: playerState.loop ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-input)',
-                border: `1px solid ${playerState.loop ? 'var(--accent)' : 'var(--border)'}`,
-                color: playerState.loop ? 'var(--accent)' : 'var(--text-muted)',
-                width: 38,
-                height: 38,
-                borderRadius: '50%',
+                background: playerState.loop ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
+                border: `1px solid ${playerState.loop ? 'var(--primary)' : 'var(--border-medium)'}`,
+                color: playerState.loop ? 'var(--primary)' : 'var(--text-muted)',
+                width: 32,
+                height: 32,
+                borderRadius: 6,
                 padding: 0,
                 display: 'flex',
                 alignItems: 'center',
@@ -781,18 +778,18 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               }}
               title={playerState.loop ? 'Loop Enabled' : 'Loop Disabled'}
             >
-              <Repeat size={16} />
+              <Repeat size={14} />
             </button>
           </div>
 
           {/* Volume Slider */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
             {playerState.volume === 0 ? (
-              <VolumeX size={18} style={{ color: 'var(--text-muted)' }} />
+              <VolumeX size={15} style={{ color: 'var(--text-muted)' }} />
             ) : playerState.volume > 100 ? (
-              <Volume2 size={18} style={{ color: 'var(--accent)' }} />
+              <Volume2 size={15} style={{ color: 'var(--primary)' }} />
             ) : (
-              <Volume1 size={18} style={{ color: 'var(--text-muted)' }} />
+              <Volume1 size={15} style={{ color: 'var(--text-muted)' }} />
             )}
             <input
               type="range"
@@ -802,40 +799,49 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               onChange={handleVolumeChange}
               style={{
                 flex: 1,
-                accentColor: 'var(--accent)',
-                height: 5,
+                accentColor: 'var(--primary)',
+                height: 4,
                 cursor: 'pointer',
               }}
             />
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-main)', minWidth: 38 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-primary)', minWidth: 34 }}>
               {playerState.volume}%
             </span>
           </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {/* Clean Segmented Navigation Tabs */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-medium)',
+            borderRadius: 6,
+            padding: 3,
+            gap: 2,
+          }}
+        >
           <button
             onClick={() => setActiveTab('online')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '8px 18px',
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 700,
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 4,
+              fontSize: 12.5,
+              fontWeight: 600,
               cursor: 'pointer',
-              background: activeTab === 'online' ? 'var(--accent)' : 'var(--bg-input)',
-              color: activeTab === 'online' ? '#fff' : 'var(--text-muted)',
-              border: `1px solid ${activeTab === 'online' ? 'var(--accent)' : 'var(--border)'}`,
-              transition: 'all 0.2s ease',
+              background: activeTab === 'online' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'online' ? '#fff' : 'var(--text-secondary)',
+              border: 'none',
+              transition: 'background-color 0.12s ease',
             }}
           >
-            <Globe size={16} />
-            <span>YouTube & Spotify Music</span>
+            <Globe size={14} />
+            <span>YouTube & Spotify</span>
           </button>
 
           <button
@@ -843,20 +849,20 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '8px 18px',
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 700,
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 4,
+              fontSize: 12.5,
+              fontWeight: 600,
               cursor: 'pointer',
-              background: activeTab === 'playlist' ? 'var(--accent)' : 'var(--bg-input)',
-              color: activeTab === 'playlist' ? '#fff' : 'var(--text-muted)',
-              border: `1px solid ${activeTab === 'playlist' ? 'var(--accent)' : 'var(--border)'}`,
-              transition: 'all 0.2s ease',
+              background: activeTab === 'playlist' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'playlist' ? '#fff' : 'var(--text-secondary)',
+              border: 'none',
+              transition: 'background-color 0.12s ease',
             }}
           >
-            <ListMusic size={16} />
-            <span>Playlist & PC Tracks ({library.length})</span>
+            <ListMusic size={14} />
+            <span>Playlist & PC Files ({library.length})</span>
           </button>
 
           <button
@@ -864,19 +870,19 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '8px 18px',
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 700,
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 4,
+              fontSize: 12.5,
+              fontWeight: 600,
               cursor: 'pointer',
-              background: activeTab === 'soundboard' ? 'var(--accent)' : 'var(--bg-input)',
-              color: activeTab === 'soundboard' ? '#fff' : 'var(--text-muted)',
-              border: `1px solid ${activeTab === 'soundboard' ? 'var(--accent)' : 'var(--border)'}`,
-              transition: 'all 0.2s ease',
+              background: activeTab === 'soundboard' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'soundboard' ? '#fff' : 'var(--text-secondary)',
+              border: 'none',
+              transition: 'background-color 0.12s ease',
             }}
           >
-            <Sparkles size={16} />
+            <Sparkles size={14} />
             <span>Soundboard ({presets.length})</span>
           </button>
         </div>
@@ -884,7 +890,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
 
       {/* TAB 1: YOUTUBE & SPOTIFY ONLINE MUSIC SEARCH */}
       {activeTab === 'online' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Quick Direct URL Box & Search Bar */}
           <div
             style={{
@@ -892,30 +898,30 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               gridTemplateColumns: '1fr auto',
               gap: 12,
               background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: 14,
-              padding: '16px 20px',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 8,
+              padding: '12px 16px',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Search size={14} color="var(--accent)" />
-                Search Songs or Artists on YouTube Music / Spotify
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Search size={13} color="var(--primary)" />
+                Search YouTube Music or Spotify
               </span>
               <form onSubmit={handleSearchOnline} style={{ display: 'flex', gap: 8 }}>
                 <input
                   type="text"
-                  placeholder="Enter track name, artist (e.g. Alan Walker - Faded, Weeknd, Lo-Fi beats)..."
+                  placeholder="Song name or artist (e.g. Alan Walker - Faded, Weeknd)..."
                   value={onlineQuery}
                   onChange={(e) => setOnlineQuery(e.target.value)}
                   style={{
                     flex: 1,
-                    padding: '9px 14px',
+                    padding: '7px 12px',
                     background: 'var(--bg-input)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    color: 'var(--text-main)',
-                    fontSize: 13,
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 6,
+                    color: 'var(--text-primary)',
+                    fontSize: 12.5,
                     outline: 'none',
                   }}
                 />
@@ -923,21 +929,21 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                   type="submit"
                   className="btn btn-primary"
                   disabled={isSearching}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', fontSize: 13, fontWeight: 700 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 6 }}
                 >
-                  {isSearching ? <Loader2 size={16} className="spin-icon" /> : <Search size={16} />}
+                  {isSearching ? <Loader2 size={14} className="spin-icon" /> : <Search size={14} />}
                   <span>Search</span>
                 </button>
               </form>
             </div>
 
             {/* Direct URL Input */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderLeft: '1px solid var(--border)', paddingLeft: 16, minWidth: 320 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Link size={14} color="#ef4444" />
-                Paste YouTube / Spotify URL
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '1px solid var(--border-light)', paddingLeft: 14, minWidth: 280 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Link size={13} color="#ef4444" />
+                Paste URL
               </span>
-              <form onSubmit={handlePlayDirectUrl} style={{ display: 'flex', gap: 8 }}>
+              <form onSubmit={handlePlayDirectUrl} style={{ display: 'flex', gap: 6 }}>
                 <input
                   type="text"
                   placeholder="https://music.youtube.com/... or spotify.com/..."
@@ -945,11 +951,11 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                   onChange={(e) => setDirectUrlInput(e.target.value)}
                   style={{
                     flex: 1,
-                    padding: '9px 12px',
+                    padding: '7px 10px',
                     background: 'var(--bg-input)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 6,
+                    color: 'var(--text-primary)',
                     fontSize: 12,
                     outline: 'none',
                   }}
@@ -959,39 +965,39 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                   className="btn"
                   disabled={isDirectLoading || !directUrlInput.trim()}
                   style={{
-                    background: 'var(--accent)',
+                    background: 'var(--primary)',
                     color: '#fff',
                     border: 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 6,
-                    padding: '9px 14px',
+                    gap: 5,
+                    padding: '7px 12px',
                     fontSize: 12,
-                    fontWeight: 700,
-                    borderRadius: 8,
+                    fontWeight: 600,
+                    borderRadius: 6,
                   }}
                 >
-                  {isDirectLoading ? <Loader2 size={14} className="spin-icon" /> : <Play size={14} />}
-                  <span>Play URL</span>
+                  {isDirectLoading ? <Loader2 size={13} className="spin-icon" /> : <Play size={13} />}
+                  <span>Play</span>
                 </button>
               </form>
             </div>
           </div>
 
-          {/* Quick Filter Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
+          {/* Source Filter Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
               <button
                 onClick={() => setOnlineSourceFilter('all')}
                 style={{
-                  padding: '5px 12px',
-                  borderRadius: 16,
-                  fontSize: 12,
-                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  fontSize: 11.5,
+                  fontWeight: 500,
                   cursor: 'pointer',
-                  background: onlineSourceFilter === 'all' ? 'var(--accent)' : 'var(--bg-card)',
-                  color: onlineSourceFilter === 'all' ? '#fff' : 'var(--text-muted)',
-                  border: '1px solid var(--border)',
+                  background: onlineSourceFilter === 'all' ? 'var(--primary)' : 'var(--bg-card)',
+                  color: onlineSourceFilter === 'all' ? '#fff' : 'var(--text-secondary)',
+                  border: '1px solid var(--border-medium)',
                 }}
               >
                 All Sources
@@ -999,63 +1005,63 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
               <button
                 onClick={() => setOnlineSourceFilter('youtube')}
                 style={{
-                  padding: '5px 12px',
-                  borderRadius: 16,
-                  fontSize: 12,
-                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  fontSize: 11.5,
+                  fontWeight: 500,
                   cursor: 'pointer',
-                  background: onlineSourceFilter === 'youtube' ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg-card)',
-                  color: onlineSourceFilter === 'youtube' ? '#ef4444' : 'var(--text-muted)',
-                  border: `1px solid ${onlineSourceFilter === 'youtube' ? '#ef4444' : 'var(--border)'}`,
+                  background: onlineSourceFilter === 'youtube' ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
+                  color: onlineSourceFilter === 'youtube' ? '#ef4444' : 'var(--text-secondary)',
+                  border: `1px solid ${onlineSourceFilter === 'youtube' ? '#ef4444' : 'var(--border-medium)'}`,
                 }}
               >
-                🔴 YouTube Music
+                YouTube
               </button>
               <button
                 onClick={() => setOnlineSourceFilter('spotify')}
                 style={{
-                  padding: '5px 12px',
-                  borderRadius: 16,
-                  fontSize: 12,
-                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  fontSize: 11.5,
+                  fontWeight: 500,
                   cursor: 'pointer',
-                  background: onlineSourceFilter === 'spotify' ? 'rgba(34, 197, 94, 0.2)' : 'var(--bg-card)',
-                  color: onlineSourceFilter === 'spotify' ? '#22c55e' : 'var(--text-muted)',
-                  border: `1px solid ${onlineSourceFilter === 'spotify' ? '#22c55e' : 'var(--border)'}`,
+                  background: onlineSourceFilter === 'spotify' ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-card)',
+                  color: onlineSourceFilter === 'spotify' ? '#22c55e' : 'var(--text-secondary)',
+                  border: `1px solid ${onlineSourceFilter === 'spotify' ? '#22c55e' : 'var(--border-medium)'}`,
                 }}
               >
-                🟢 Spotify
+                Spotify
               </button>
             </div>
 
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              Showing {filteredOnlineResults.length} track results
+            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+              {filteredOnlineResults.length} tracks found
             </span>
           </div>
 
           {/* Results Grid */}
           {isSearching ? (
-            <div style={{ padding: '60px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-              <Loader2 size={36} className="spin-icon" style={{ color: 'var(--accent)' }} />
-              <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Searching YouTube Music & Spotify...</span>
+            <div style={{ padding: '48px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <Loader2 size={30} className="spin-icon" style={{ color: 'var(--primary)' }} />
+              <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>Searching YouTube & Spotify...</span>
             </div>
           ) : filteredOnlineResults.length === 0 ? (
             <div
               style={{
-                border: '1px dashed var(--border)',
+                border: '1px dashed var(--border-medium)',
                 background: 'var(--bg-card)',
-                borderRadius: 14,
-                padding: '40px 24px',
+                borderRadius: 8,
+                padding: '36px 20px',
                 textAlign: 'center',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: 12,
+                gap: 10,
               }}
             >
-              <Music size={32} color="var(--text-muted)" />
-              <h4 style={{ margin: 0, fontSize: 15, color: 'var(--text-main)' }}>No search results</h4>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+              <Music size={28} color="var(--text-muted)" />
+              <h4 style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)' }}>No search results</h4>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>
                 Type a song name in the search box above or paste any YouTube / Spotify URL.
               </p>
             </div>
@@ -1063,8 +1069,8 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: 14,
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                gap: 10,
               }}
             >
               {filteredOnlineResults.map((track) => {
@@ -1074,25 +1080,23 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                   <div
                     key={track.id}
                     style={{
-                      background: isCurrent ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-card)',
-                      border: `1px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'}`,
-                      borderRadius: 14,
-                      padding: 14,
+                      background: isCurrent ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-card)',
+                      border: `1px solid ${isCurrent ? 'var(--primary)' : 'var(--border-medium)'}`,
+                      borderRadius: 6,
+                      padding: 10,
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 12,
-                      boxShadow: isCurrent ? '0 0 16px rgba(59, 130, 246, 0.25)' : 'none',
-                      transition: 'all 0.2s ease',
+                      gap: 8,
+                      transition: 'border-color 0.15s ease',
                       position: 'relative',
                     }}
-                    className="hover-glow"
                   >
                     {/* Top image & badge */}
                     <div
                       style={{
                         position: 'relative',
-                        height: 130,
-                        borderRadius: 10,
+                        height: 110,
+                        borderRadius: 4,
                         overflow: 'hidden',
                         background: '#0a0a0a',
                       }}
@@ -1108,15 +1112,15 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                       <span
                         style={{
                           position: 'absolute',
-                          bottom: 8,
-                          right: 8,
-                          padding: '2px 6px',
-                          borderRadius: 4,
+                          bottom: 6,
+                          right: 6,
+                          padding: '1px 5px',
+                          borderRadius: 3,
                           background: 'rgba(0, 0, 0, 0.8)',
                           color: '#fff',
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontFamily: 'monospace',
-                          fontWeight: 700,
+                          fontWeight: 600,
                         }}
                       >
                         {track.durationFormatted}
@@ -1126,14 +1130,14 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                       <span
                         style={{
                           position: 'absolute',
-                          top: 8,
-                          left: 8,
-                          padding: '2px 6px',
-                          borderRadius: 4,
+                          top: 6,
+                          left: 6,
+                          padding: '1px 5px',
+                          borderRadius: 3,
                           background: track.source === 'spotify' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)',
                           color: '#fff',
-                          fontSize: 10,
-                          fontWeight: 800,
+                          fontSize: 9.5,
+                          fontWeight: 700,
                           textTransform: 'uppercase',
                         }}
                       >
@@ -1142,12 +1146,12 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                     </div>
 
                     {/* Meta info */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                       <div
                         style={{
-                          fontSize: 13,
-                          fontWeight: 700,
-                          color: isCurrent ? 'var(--accent)' : 'var(--text-main)',
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          color: isCurrent ? 'var(--primary)' : 'var(--text-primary)',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -1170,27 +1174,27 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                     </div>
 
                     {/* Actions */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
                       <button
                         onClick={() => handlePlayOnlineTrack(track)}
                         className="btn"
                         style={{
                           flex: 1,
-                          background: isCurrent ? 'var(--accent)' : 'rgba(16, 185, 129, 0.15)',
+                          background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
                           color: isCurrent ? '#fff' : 'var(--success)',
-                          border: `1px solid ${isCurrent ? 'var(--accent)' : 'rgba(16, 185, 129, 0.3)'}`,
-                          padding: '6px 12px',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          borderRadius: 8,
+                          border: `1px solid ${isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.25)'}`,
+                          padding: '5px 8px',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          borderRadius: 4,
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: 6,
+                          gap: 4,
                           cursor: 'pointer',
                         }}
                       >
-                        <Play size={13} />
+                        <Play size={12} />
                         <span>{isCurrent ? 'Playing' : 'Play to VC'}</span>
                       </button>
 
@@ -1199,10 +1203,10 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                         className="btn"
                         style={{
                           background: 'var(--bg-input)',
-                          border: '1px solid var(--border)',
+                          border: '1px solid var(--border-medium)',
                           color: 'var(--text-muted)',
-                          padding: '6px 10px',
-                          borderRadius: 8,
+                          padding: '5px 8px',
+                          borderRadius: 4,
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1210,7 +1214,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                         }}
                         title="Save to Playlist"
                       >
-                        <BookmarkPlus size={15} />
+                        <BookmarkPlus size={14} />
                       </button>
                     </div>
                   </div>
@@ -1223,35 +1227,35 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
 
       {/* TAB 2: PLAYLIST & LOCAL MUSIC */}
       {activeTab === 'playlist' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
                 onClick={handleAddFiles}
                 className="btn btn-primary"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 6 }}
               >
-                <Upload size={16} />
-                <span>Add Music / Videos from PC</span>
+                <Upload size={14} />
+                <span>Add Files from PC</span>
               </button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {/* Local Search Input */}
-              <div style={{ position: 'relative', minWidth: 220 }}>
-                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <div style={{ position: 'relative', minWidth: 200 }}>
+                <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
-                  placeholder="Filter saved files..."
+                  placeholder="Filter tracks..."
                   value={localSearchQuery}
                   onChange={(e) => setLocalSearchQuery(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '7px 12px 7px 30px',
+                    padding: '6px 10px 6px 26px',
                     background: 'var(--bg-input)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    color: 'var(--text-main)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 6,
+                    color: 'var(--text-primary)',
                     fontSize: 12,
                     outline: 'none',
                     boxSizing: 'border-box',
@@ -1264,45 +1268,45 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  background: 'var(--bg-input)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-medium)',
+                  borderRadius: 6,
                   padding: 2,
                 }}
               >
                 <button
                   onClick={() => setPlaylistViewMode('grid')}
                   style={{
-                    background: playlistViewMode === 'grid' ? 'var(--accent)' : 'transparent',
+                    background: playlistViewMode === 'grid' ? 'var(--primary)' : 'transparent',
                     color: playlistViewMode === 'grid' ? '#fff' : 'var(--text-muted)',
                     border: 'none',
-                    borderRadius: 6,
-                    padding: '5px 8px',
+                    borderRadius: 4,
+                    padding: '4px 6px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
-                  title="Grid View (Compact)"
+                  title="Grid View"
                 >
-                  <LayoutGrid size={15} />
+                  <LayoutGrid size={14} />
                 </button>
                 <button
                   onClick={() => setPlaylistViewMode('table')}
                   style={{
-                    background: playlistViewMode === 'table' ? 'var(--accent)' : 'transparent',
+                    background: playlistViewMode === 'table' ? 'var(--primary)' : 'transparent',
                     color: playlistViewMode === 'table' ? '#fff' : 'var(--text-muted)',
                     border: 'none',
-                    borderRadius: 6,
-                    padding: '5px 8px',
+                    borderRadius: 4,
+                    padding: '4px 6px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
-                  title="List / Table View"
+                  title="Table View"
                 >
-                  <List size={15} />
+                  <List size={14} />
                 </button>
               </div>
             </div>
@@ -1313,37 +1317,37 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             <div
               onClick={handleAddFiles}
               style={{
-                border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--border)'}`,
-                background: isDragging ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-card)',
-                borderRadius: 16,
-                padding: '48px 24px',
+                border: `1px dashed ${isDragging ? 'var(--primary)' : 'var(--border-medium)'}`,
+                background: isDragging ? 'rgba(59, 130, 246, 0.06)' : 'var(--bg-card)',
+                borderRadius: 8,
+                padding: '40px 20px',
                 textAlign: 'center',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.15s ease',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: 12,
+                gap: 10,
               }}
             >
               <div
                 style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  background: 'rgba(59, 130, 246, 0.12)',
-                  color: 'var(--accent)',
+                  width: 44,
+                  height: 44,
+                  borderRadius: 6,
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: 'var(--primary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <FolderOpen size={28} />
+                <FolderOpen size={22} />
               </div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
-                No Audio or Video Tracks Saved Yet
+              <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                No Tracks in Playlist Yet
               </h3>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, maxWidth: 420 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, maxWidth: 380 }}>
                 Click here or drag audio/video files from your PC into this window, or search and bookmark tracks from YouTube & Spotify.
               </p>
             </div>
@@ -1352,8 +1356,8 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
-                gap: 12,
+                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                gap: 10,
               }}
             >
               {filteredLibrary.map((track, idx) => {
@@ -1364,29 +1368,26 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                   <div
                     key={track.id || idx}
                     style={{
-                      background: isCurrent ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-card)',
-                      border: `1px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'}`,
-                      borderRadius: 12,
-                      padding: 10,
+                      background: isCurrent ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-card)',
+                      border: `1px solid ${isCurrent ? 'var(--primary)' : 'var(--border-medium)'}`,
+                      borderRadius: 6,
+                      padding: 8,
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 8,
-                      boxShadow: isCurrent ? '0 0 14px rgba(59, 130, 246, 0.25)' : 'none',
-                      transition: 'all 0.18s ease',
+                      gap: 6,
                       position: 'relative',
                     }}
-                    className="hover-glow"
                   >
                     {/* Thumbnail / Header Box */}
                     <div
                       style={{
                         position: 'relative',
-                        height: 96,
-                        borderRadius: 8,
+                        height: 84,
+                        borderRadius: 4,
                         overflow: 'hidden',
                         background: track.thumbnail
                           ? '#0a0a0a'
-                          : 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%)',
+                          : 'var(--bg-input)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1402,8 +1403,8 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                           }}
                         />
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: 'var(--accent)' }}>
-                          <FileAudio size={28} />
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, color: 'var(--primary)' }}>
+                          <FileAudio size={22} />
                         </div>
                       )}
 
@@ -1412,15 +1413,15 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                         <span
                           style={{
                             position: 'absolute',
-                            bottom: 6,
-                            right: 6,
-                            padding: '1px 5px',
-                            borderRadius: 4,
+                            bottom: 4,
+                            right: 4,
+                            padding: '1px 4px',
+                            borderRadius: 3,
                             background: 'rgba(0, 0, 0, 0.8)',
                             color: '#fff',
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontFamily: 'monospace',
-                            fontWeight: 700,
+                            fontWeight: 600,
                           }}
                         >
                           {formatTime(track.duration)}
@@ -1431,10 +1432,10 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                       <span
                         style={{
                           position: 'absolute',
-                          top: 6,
-                          left: 6,
-                          padding: '1px 5px',
-                          borderRadius: 4,
+                          top: 4,
+                          left: 4,
+                          padding: '1px 4px',
+                          borderRadius: 3,
                           background:
                             track.ext === 'SPOTIFY'
                               ? 'rgba(34, 197, 94, 0.9)'
@@ -1442,8 +1443,8 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                               ? 'rgba(239, 68, 68, 0.9)'
                               : 'rgba(59, 130, 246, 0.85)',
                           color: '#fff',
-                          fontSize: 9,
-                          fontWeight: 800,
+                          fontSize: 8.5,
+                          fontWeight: 700,
                           textTransform: 'uppercase',
                         }}
                       >
@@ -1456,8 +1457,8 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                       <div
                         style={{
                           fontSize: 12,
-                          fontWeight: 700,
-                          color: isCurrent ? 'var(--accent)' : 'var(--text-main)',
+                          fontWeight: 600,
+                          color: isCurrent ? 'var(--primary)' : 'var(--text-primary)',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -1480,28 +1481,28 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                     </div>
 
                     {/* Actions */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto' }}>
                       <button
                         onClick={() => handlePlayTrack(track)}
                         className="btn"
                         style={{
                           flex: 1,
-                          background: isCurrent ? 'var(--accent)' : 'rgba(16, 185, 129, 0.15)',
+                          background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
                           color: isCurrent ? '#fff' : 'var(--success)',
-                          border: `1px solid ${isCurrent ? 'var(--accent)' : 'rgba(16, 185, 129, 0.3)'}`,
-                          padding: '5px 8px',
+                          border: `1px solid ${isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.25)'}`,
+                          padding: '4px 6px',
                           fontSize: 11,
-                          fontWeight: 700,
-                          borderRadius: 6,
+                          fontWeight: 600,
+                          borderRadius: 4,
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: 4,
+                          gap: 3,
                           cursor: 'pointer',
                         }}
                         title="Stream to Discord Voice"
                       >
-                        <Play size={12} />
+                        <Play size={11} />
                         <span>{isCurrent ? 'Playing' : 'Play VC'}</span>
                       </button>
 
@@ -1511,11 +1512,11 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                           onClick={() => handleTogglePreview(track.filePath)}
                           className="btn"
                           style={{
-                            background: isPreviewing ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-input)',
-                            color: isPreviewing ? 'var(--accent)' : 'var(--text-muted)',
-                            border: '1px solid var(--border)',
-                            padding: '5px 6px',
-                            borderRadius: 6,
+                            background: isPreviewing ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
+                            color: isPreviewing ? 'var(--primary)' : 'var(--text-muted)',
+                            border: '1px solid var(--border-medium)',
+                            padding: '4px 6px',
+                            borderRadius: 4,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -1523,7 +1524,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                           }}
                           title={isPreviewing ? 'Stop Local Preview' : 'Preview on PC Speakers'}
                         >
-                          <Headphones size={12} />
+                          <Headphones size={11} />
                         </button>
                       )}
 
@@ -1535,8 +1536,8 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                           background: 'transparent',
                           color: 'var(--text-muted)',
                           border: 'none',
-                          padding: '5px 6px',
-                          borderRadius: 6,
+                          padding: '4px 5px',
+                          borderRadius: 4,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -1544,7 +1545,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                         }}
                         title="Remove Track"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   </div>
@@ -1556,28 +1557,28 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
             <div
               style={{
                 background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                borderRadius: 14,
+                border: '1px solid var(--border-medium)',
+                borderRadius: 6,
                 overflow: 'hidden',
               }}
             >
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'auto 1fr 100px 80px 140px',
-                  padding: '10px 18px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  borderBottom: '1px solid var(--border)',
+                  gridTemplateColumns: 'auto 1fr 90px 70px 130px',
+                  padding: '8px 14px',
+                  background: 'var(--bg-main)',
+                  borderBottom: '1px solid var(--border-medium)',
                   fontSize: 11,
-                  fontWeight: 700,
+                  fontWeight: 600,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
+                  letterSpacing: '0.04em',
                   color: 'var(--text-muted)',
                   alignItems: 'center',
-                  gap: 12,
+                  gap: 10,
                 }}
               >
-                <span style={{ width: 28, textAlign: 'center' }}>#</span>
+                <span style={{ width: 24, textAlign: 'center' }}>#</span>
                 <span>Title</span>
                 <span>Size</span>
                 <span>Duration</span>
@@ -1594,75 +1595,75 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                       key={track.id || idx}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: 'auto 1fr 100px 80px 140px',
-                        padding: '12px 18px',
-                        borderBottom: '1px solid var(--border)',
-                        fontSize: 13,
-                        color: 'var(--text-main)',
+                        gridTemplateColumns: 'auto 1fr 90px 70px 130px',
+                        padding: '9px 14px',
+                        borderBottom: '1px solid var(--border-light)',
+                        fontSize: 12.5,
+                        color: 'var(--text-primary)',
                         alignItems: 'center',
-                        gap: 12,
-                        background: isCurrent ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
-                        transition: 'background 0.15s ease',
+                        gap: 10,
+                        background: isCurrent ? 'rgba(59, 130, 246, 0.06)' : 'transparent',
+                        transition: 'background-color 0.12s ease',
                       }}
                     >
-                      <span style={{ width: 28, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                      <span style={{ width: 24, textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>
                         {idx + 1}
                       </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <div
                           style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 8,
-                            background: isCurrent ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-input)',
-                            color: isCurrent ? 'var(--accent)' : 'var(--text-muted)',
+                            width: 26,
+                            height: 26,
+                            borderRadius: 4,
+                            background: isCurrent ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
+                            color: isCurrent ? 'var(--primary)' : 'var(--text-muted)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0,
                           }}
                         >
-                          <FileAudio size={16} />
+                          <FileAudio size={14} />
                         </div>
                         <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <div style={{ fontWeight: 600, color: isCurrent ? 'var(--accent)' : 'var(--text-main)' }}>
+                          <div style={{ fontWeight: 600, color: isCurrent ? 'var(--primary)' : 'var(--text-primary)' }}>
                             {track.title}
                           </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
                             {track.author || track.fileName}
                           </div>
                         </div>
                       </div>
 
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                         {track.sizeBytes > 0 ? formatSize(track.sizeBytes) : 'Online'}
                       </span>
 
-                      <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: 11.5, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
                         {formatTime(track.duration)}
                       </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                         {/* Play into VC */}
                         <button
                           onClick={() => handlePlayTrack(track)}
                           className="btn"
                           style={{
-                            background: isCurrent ? 'var(--accent)' : 'rgba(16, 185, 129, 0.15)',
+                            background: isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.12)',
                             color: isCurrent ? '#fff' : 'var(--success)',
-                            border: `1px solid ${isCurrent ? 'var(--accent)' : 'rgba(16, 185, 129, 0.3)'}`,
-                            padding: '4px 10px',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            borderRadius: 6,
+                            border: `1px solid ${isCurrent ? 'var(--primary)' : 'rgba(16, 185, 129, 0.25)'}`,
+                            padding: '3px 8px',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            borderRadius: 4,
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 4,
+                            gap: 3,
                           }}
                           title="Stream to Voice Channel"
                         >
-                          <Play size={12} />
+                          <Play size={11} />
                           <span>{isCurrent ? 'Playing' : 'Play VC'}</span>
                         </button>
 
@@ -1672,15 +1673,15 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                             onClick={() => handleTogglePreview(track.filePath)}
                             className="btn"
                             style={{
-                              background: isPreviewing ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-input)',
-                              color: isPreviewing ? 'var(--accent)' : 'var(--text-muted)',
-                              border: '1px solid var(--border)',
-                              padding: '4px 8px',
-                              borderRadius: 6,
+                              background: isPreviewing ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
+                              color: isPreviewing ? 'var(--primary)' : 'var(--text-muted)',
+                              border: '1px solid var(--border-medium)',
+                              padding: '3px 6px',
+                              borderRadius: 4,
                             }}
                             title={isPreviewing ? 'Stop Local Preview' : 'Preview on PC Speakers'}
                           >
-                            <Headphones size={13} />
+                            <Headphones size={12} />
                           </button>
                         )}
 
@@ -1692,13 +1693,13 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                             background: 'transparent',
                             color: 'var(--text-muted)',
                             border: 'none',
-                            padding: '4px 6px',
-                            borderRadius: 6,
+                            padding: '3px 5px',
+                            borderRadius: 4,
                             cursor: 'pointer',
                           }}
                           title="Remove Track"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </div>
@@ -1710,26 +1711,26 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
         </div>
       )}
 
-      {/* Tab 2: Soundboard Content */}
+      {/* Tab 3: Soundboard Content */}
       {activeTab === 'soundboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Category Filter Pills */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Category Filter Buttons */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 style={{
-                  padding: '5px 14px',
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 600,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  fontSize: 11.5,
+                  fontWeight: 500,
                   cursor: 'pointer',
-                  background: selectedCategory === cat ? 'var(--accent)' : 'var(--bg-input)',
-                  color: selectedCategory === cat ? '#fff' : 'var(--text-muted)',
-                  border: `1px solid ${selectedCategory === cat ? 'var(--accent)' : 'var(--border)'}`,
+                  background: selectedCategory === cat ? 'var(--primary)' : 'var(--bg-card)',
+                  color: selectedCategory === cat ? '#fff' : 'var(--text-secondary)',
+                  border: `1px solid ${selectedCategory === cat ? 'var(--primary)' : 'var(--border-medium)'}`,
                   textTransform: 'capitalize',
-                  transition: 'all 0.15s ease',
+                  transition: 'all 0.12s ease',
                 }}
               >
                 {cat}
@@ -1741,8 +1742,8 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-              gap: 14,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: 10,
             }}
           >
             {filteredPresets.map((preset) => {
@@ -1753,26 +1754,25 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                   key={preset.id}
                   onClick={() => handlePlayTrack(preset)}
                   style={{
-                    background: isPlaying ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-card)',
-                    border: `1px solid ${isPlaying ? 'var(--accent)' : 'var(--border)'}`,
-                    borderRadius: 14,
-                    padding: '16px',
+                    background: isPlaying ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-card)',
+                    border: `1px solid ${isPlaying ? 'var(--primary)' : 'var(--border-medium)'}`,
+                    borderRadius: 6,
+                    padding: '12px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: 12,
-                    boxShadow: isPlaying ? '0 0 16px rgba(59, 130, 246, 0.25)' : 'none',
-                    transition: 'all 0.2s ease',
+                    gap: 10,
+                    transition: 'border-color 0.15s ease',
                   }}
-                  className="soundboard-card hover-glow"
+                  className="soundboard-card"
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     <div
                       style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 10,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 6,
                         background: 'var(--bg-input)',
                         display: 'flex',
                         alignItems: 'center',
@@ -1783,10 +1783,10 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                       {getPresetIcon(preset.icon)}
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {preset.name}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 1 }}>
                         {preset.category} • {preset.duration}
                       </div>
                     </div>
@@ -1794,10 +1794,10 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
 
                   <div
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      background: isPlaying ? 'var(--accent)' : 'rgba(255, 255, 255, 0.05)',
+                      width: 26,
+                      height: 26,
+                      borderRadius: 4,
+                      background: isPlaying ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)',
                       color: isPlaying ? '#fff' : 'var(--text-muted)',
                       display: 'flex',
                       alignItems: 'center',
@@ -1805,7 +1805,7 @@ export const PlayView: React.FC<PlayViewProps> = ({ tokens, connected, onNavigat
                       flexShrink: 0,
                     }}
                   >
-                    <Play size={14} style={{ marginLeft: 2 }} />
+                    <Play size={12} style={{ marginLeft: 1 }} />
                   </div>
                 </div>
               );

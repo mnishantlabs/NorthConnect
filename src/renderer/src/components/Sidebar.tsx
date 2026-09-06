@@ -76,16 +76,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
     display: 'flex',
     alignItems: 'center',
     justifyContent: collapsed ? 'center' : 'flex-start',
-    padding: collapsed ? '9px 0' : '9px 12px',
-    borderRadius: '8px',
+    padding: collapsed ? '8px 0' : '8px 10px',
+    borderRadius: '6px',
     color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-    backgroundColor: active ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+    backgroundColor: active ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    transition: 'background-color 0.12s ease, color 0.12s ease',
     width: '100%',
     boxSizing: 'border-box',
     borderLeft: collapsed ? 'none' : `3px solid ${active ? 'var(--primary)' : 'transparent'}`,
     position: 'relative',
+    fontWeight: active ? 600 : 500,
   });
 
   const labelStyle: React.CSSProperties = {
@@ -93,12 +94,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
     width: collapsed ? 0 : 'auto',
     overflow: 'hidden',
     whiteSpace: 'nowrap',
-    transition: 'opacity 180ms ease, width 180ms ease',
-    marginLeft: collapsed ? 0 : 12,
+    transition: 'opacity 150ms ease, width 150ms ease',
+    marginLeft: collapsed ? 0 : 10,
     display: 'inline-block',
     flex: 1,
-    fontSize: '13.5px',
-    fontWeight: 500,
+    fontSize: '13px',
   };
 
   return (
@@ -106,9 +106,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
       className={`sidebar ${collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
       style={{
         width: `${width}px`,
-        transition: 'width 200ms ease, padding 200ms ease',
+        transition: 'width 180ms cubic-bezier(0.4, 0, 0.2, 1), padding 180ms ease',
         position: 'relative',
-        padding: collapsed ? '12px 6px' : '14px 10px 10px 10px',
+        padding: collapsed ? '10px 6px' : '12px 8px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
@@ -125,9 +125,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
             display: 'flex',
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'space-between',
-            padding: collapsed ? '2px 0 10px 0' : '2px 6px 10px 6px',
+            padding: collapsed ? '2px 0 8px 0' : '2px 4px 8px 4px',
             overflow: 'hidden',
-            height: '32px',
+            height: '28px',
             flexShrink: 0,
             width: '100%',
             boxSizing: 'border-box',
@@ -137,9 +137,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
             <span
               style={{
                 fontSize: 11,
-                fontWeight: 700,
+                fontWeight: 600,
                 textTransform: 'uppercase',
-                letterSpacing: '0.08em',
+                letterSpacing: '0.06em',
                 color: 'var(--text-muted)',
               }}
             >
@@ -155,15 +155,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 28,
-              height: 28,
+              width: 24,
+              height: 24,
               padding: 0,
               border: 'none',
               background: 'transparent',
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              borderRadius: 6,
-              transition: 'background-color 0.15s, color 0.15s',
+              borderRadius: 4,
+              transition: 'background-color 0.12s, color 0.12s',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)';
@@ -174,14 +174,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
               e.currentTarget.style.color = 'var(--text-muted)';
             }}
           >
-            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
           </button>
         </div>
 
-        <div style={{ height: 1, background: 'var(--border-light)', width: '100%', marginBottom: 10 }} />
+        <div style={{ height: 1, background: 'var(--border-light)', width: '100%', marginBottom: 8 }} />
 
         {/* Primary Navigation Menu */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {TOP_NAV_ITEMS.map(({ id, label, icon: Icon, badge, isConstruction }) => {
             const active = isViewActive(id);
             const badgeVal = badge ? badge(counts) : null;
@@ -191,10 +191,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
                 key={id}
                 style={itemStyle(active)}
                 onClick={() => onViewChange(id)}
-                title={collapsed ? `${label} ${isConstruction ? '(Under Construction)' : ''}` : ''}
+                title={collapsed ? `${label} ${isConstruction ? '(WIP)' : ''}` : ''}
               >
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: 20, color: active ? 'var(--primary)' : 'inherit' }}>
-                  <Icon size={18} />
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: 18, color: active ? 'var(--primary)' : 'inherit' }}>
+                  <Icon size={16} />
                 </div>
                 <span style={labelStyle}>{label}</span>
 
@@ -202,13 +202,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
                 {isConstruction && !collapsed && (
                   <span
                     style={{
-                      fontSize: 9.5,
+                      fontSize: 9,
                       fontWeight: 700,
                       color: 'var(--warning)',
-                      background: 'rgba(234, 179, 8, 0.15)',
-                      border: '1px solid rgba(234, 179, 8, 0.3)',
-                      borderRadius: 4,
-                      padding: '1px 5px',
+                      background: 'rgba(234, 179, 8, 0.12)',
+                      border: '1px solid rgba(234, 179, 8, 0.25)',
+                      borderRadius: 3,
+                      padding: '1px 4px',
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
                     }}
@@ -222,11 +222,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
                   <span
                     style={{
                       fontSize: 11,
-                      fontWeight: 700,
+                      fontWeight: 600,
                       color: active ? 'var(--primary)' : 'var(--text-muted)',
-                      background: active ? 'rgba(59, 130, 246, 0.18)' : 'var(--bg-card-hover)',
-                      borderRadius: 10,
-                      padding: '1px 7px',
+                      background: active ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-card-hover)',
+                      borderRadius: 4,
+                      padding: '1px 6px',
                     }}
                   >
                     {badgeVal}
@@ -239,15 +239,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
       </div>
 
       {/* Bottom Section: Settings & Footer */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* Settings Navigation Item */}
         <div
           style={itemStyle(isViewActive('settings'))}
           onClick={() => onViewChange('settings')}
           title={collapsed ? 'Settings' : ''}
         >
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: 20, color: isViewActive('settings') ? 'var(--primary)' : 'inherit' }}>
-            <Settings size={18} />
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: 18, color: isViewActive('settings') ? 'var(--primary)' : 'inherit' }}>
+            <Settings size={16} />
           </div>
           <span style={labelStyle}>Settings</span>
         </div>
@@ -260,35 +260,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, the
             display: 'flex',
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'space-between',
-            padding: collapsed ? '4px 0' : '4px 6px',
+            padding: collapsed ? '2px 0' : '2px 4px',
             boxSizing: 'border-box',
           }}
         >
           {!collapsed && (
-            <span style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 500 }}>
-              v1.0.0
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>
+              v2.0.0
             </span>
           )}
 
           <button
-            className={`theme-toggle-pill ${theme}`}
             onClick={onToggleTheme}
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             style={{
               background: 'var(--bg-card)',
               border: '1px solid var(--border-medium)',
-              borderRadius: 14,
-              padding: '3px 8px',
+              borderRadius: 6,
+              padding: collapsed ? '4px' : '3px 8px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 5,
               color: 'var(--text-secondary)',
+              transition: 'background-color 0.15s, border-color 0.15s',
             }}
           >
-            {theme === 'dark' ? <Moon size={13} style={{ color: '#38bdf8' }} /> : <Sun size={13} style={{ color: '#f59e0b' }} />}
+            {theme === 'dark' ? <Moon size={12} style={{ color: '#38bdf8' }} /> : <Sun size={12} style={{ color: '#f59e0b' }} />}
             {!collapsed && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
+              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-secondary)' }}>
                 {theme === 'dark' ? 'Dark' : 'Light'}
               </span>
             )}

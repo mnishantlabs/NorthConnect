@@ -316,16 +316,16 @@ export const Titlebar: React.FC<TitlebarProps> = ({
             gap: 10,
             background: 'var(--bg-card)',
             border: '1px solid var(--border-medium)',
-            borderRadius: '20px',
-            padding: '3px 12px',
+            borderRadius: '6px',
+            padding: '3px 10px',
             fontSize: '11.5px',
-            fontWeight: 600,
+            fontWeight: 500,
             color: 'var(--text-secondary)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-            <span style={{ color: 'var(--text-primary)' }}>{counts.valid}</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{counts.valid}</span>
             <span style={{ color: 'var(--text-muted)' }}>valid</span>
           </div>
 
@@ -333,7 +333,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: counts.invalid > 0 ? '#ef4444' : 'var(--text-muted)' }} />
-            <span style={{ color: counts.invalid > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{counts.invalid}</span>
+            <span style={{ color: counts.invalid > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: 600 }}>{counts.invalid}</span>
             <span style={{ color: 'var(--text-muted)' }}>invalid</span>
           </div>
 
@@ -342,7 +342,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
               <div style={{ width: 1, height: 10, background: 'var(--border-medium)' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-                <span style={{ color: 'var(--text-primary)' }}>{counts.locked}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{counts.locked}</span>
                 <span style={{ color: 'var(--text-muted)' }}>locked</span>
               </div>
             </>
@@ -366,7 +366,7 @@ export const Titlebar: React.FC<TitlebarProps> = ({
         style={{
           position: 'relative',
           width: '100%',
-          maxWidth: '480px',
+          maxWidth: '460px',
           margin: '0 20px',
           WebkitAppRegion: 'no-drag',
         }}
@@ -375,13 +375,13 @@ export const Titlebar: React.FC<TitlebarProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            height: '34px',
+            height: '32px',
             background: 'var(--bg-card)',
             border: isOpen ? '1px solid var(--primary)' : '1px solid var(--border-medium)',
-            borderRadius: '8px',
-            padding: '0 12px',
+            borderRadius: '6px',
+            padding: '0 10px',
             boxShadow: isOpen ? '0 0 0 2px var(--primary-glow)' : 'none',
-            transition: 'all 0.15s ease',
+            transition: 'border-color 0.12s ease, box-shadow 0.12s ease',
           }}
           onClick={() => {
             inputRef.current?.focus();

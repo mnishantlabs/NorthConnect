@@ -2,7 +2,6 @@ import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import fs from "fs";
 import { app } from "electron";
-import ytSearch from "yt-search";
 import { Readable } from "stream";
 import YTDlpWrap from "yt-dlp-wrap";
 import { getFfmpegPath } from "./voice-audio";
@@ -125,94 +124,96 @@ export function extractYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+export async function searchWithYtDlp(query: string, limit = 15): Promise<OnlineTrackResult[]> {
+  await ensureYtDlpBinary();
+  const ytdlBin = getYtDlpPath();
+
+  return new Promise((resolve) => {
+    const args = [
+      "--flat-playlist",
+      "-j",
+      "--no-warnings",
+      "-q",
+      "--default-search",
+      `ytsearch${limit}`,
+      query,
+    ];
+
+    try {
+      const proc = spawn(ytdlBin, args, { windowsHide: true });
+      let output = "";
+      proc.stdout.on("data", (d) => {
+        output += d.toString();
+      });
+      proc.on("error", (err) => {
+        console.error("yt-dlp search spawn error:", err);
+        resolve([]);
+      });
+      proc.on("close", (code) => {
+        if (!output.trim()) {
+          resolve([]);
+          return;
+        }
+        const lines = output.trim().split(/\r?\n/);
+        const results: OnlineTrackResult[] = [];
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (!data.id && !data.url) continue;
+            const vidId = data.id || extractYouTubeId(data.url) || "";
+            const title = typeof data.title === "string" ? data.title : "Unknown Title";
+            const author = typeof data.uploader === "string" ? data.uploader : (typeof data.channel === "string" ? data.channel : "YouTube Music");
+            const durationSec = typeof data.duration === "number" ? data.duration : 0;
+            const thumbnail = (Array.isArray(data.thumbnails) && data.thumbnails.length > 0)
+              ? (data.thumbnails[data.thumbnails.length - 1]?.url || data.thumbnails[0]?.url)
+              : `https://i.ytimg.com/vi/${vidId}/hqdefault.jpg`;
+            const url = data.url && data.url.startsWith("http") ? data.url : `https://www.youtube.com/watch?v=${vidId}`;
+
+            results.push({
+              id: vidId || url,
+              title,
+              author,
+              duration: durationSec,
+              durationFormatted: formatDuration(durationSec),
+              thumbnail,
+              url,
+              views: data.view_count,
+              source: "youtube",
+            });
+          } catch {}
+        }
+        resolve(results);
+      });
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
 export async function searchOnlineMusic(query: string, limit = 15): Promise<OnlineTrackResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
+  // Handle Spotify URLs
   if (trimmed.includes("spotify.com/track/") || trimmed.includes("spotify:track:")) {
     const spotifyMeta = await fetchSpotifyTrackMetadata(trimmed);
-    const searchTerm = spotifyMeta ? spotifyMeta.title + " " + spotifyMeta.artist : trimmed;
-    const ytResults = await ytSearch(searchTerm);
-    if (ytResults?.videos?.length) {
-      return ytResults.videos.slice(0, limit).map((v) => ({
-        id: v.videoId || v.url,
-        title: spotifyMeta?.title || v.title,
-        author: spotifyMeta?.artist || v.author.name,
-        duration: v.duration.seconds || 0,
-        durationFormatted: v.duration.timestamp || formatDuration(v.duration.seconds),
-        thumbnail: spotifyMeta?.thumbnail || v.thumbnail || v.image,
-        url: v.url,
-        views: v.views,
-        ago: v.ago,
+    const searchTerm = spotifyMeta ? `${spotifyMeta.title} ${spotifyMeta.artist}` : trimmed;
+    const results = await searchWithYtDlp(searchTerm, Math.min(limit, 5));
+    if (results.length > 0) {
+      return results.map((v, i) => ({
+        ...v,
+        title: i === 0 && spotifyMeta?.title ? spotifyMeta.title : v.title,
+        author: i === 0 && spotifyMeta?.artist ? spotifyMeta.artist : v.author,
+        thumbnail: i === 0 && spotifyMeta?.thumbnail ? spotifyMeta.thumbnail : v.thumbnail,
         source: "spotify" as const,
       }));
     }
   }
 
-  if (
-    trimmed.includes("youtube.com/watch") ||
-    trimmed.includes("youtu.be/") ||
-    trimmed.includes("music.youtube.com/watch")
-  ) {
-    try {
-      const vidId = extractYouTubeId(trimmed);
-      if (vidId) {
-        const r = await ytSearch({ videoId: vidId });
-        if (r) {
-          return [
-            {
-              id: r.videoId || vidId,
-              title: r.title,
-              author: r.author?.name || "YouTube Music",
-              duration: r.duration?.seconds || 0,
-              durationFormatted: r.duration?.timestamp || formatDuration(r.duration?.seconds || 0),
-              thumbnail: r.thumbnail || r.image,
-              url: r.url || trimmed,
-              views: r.views,
-              ago: r.ago,
-              source: "youtube" as const,
-            },
-          ];
-        }
-      }
-    } catch {}
-
-    const ytResults = await ytSearch(trimmed);
-    if (ytResults?.videos?.length) {
-      const v = ytResults.videos[0];
-      return [
-        {
-          id: v.videoId || v.url,
-          title: v.title,
-          author: v.author.name,
-          duration: v.duration.seconds,
-          durationFormatted: v.duration.timestamp || formatDuration(v.duration.seconds),
-          thumbnail: v.thumbnail || v.image,
-          url: v.url,
-          views: v.views,
-          ago: v.ago,
-          source: "youtube" as const,
-        },
-      ];
-    }
-  }
-
+  // Direct YouTube URL or Query Search
   try {
-    const results = await ytSearch(trimmed);
-    if (!results?.videos?.length) return [];
-
-    return results.videos.slice(0, limit).map((v) => ({
-      id: v.videoId || v.url,
-      title: v.title,
-      author: v.author.name,
-      duration: v.duration.seconds,
-      durationFormatted: v.duration.timestamp || formatDuration(v.duration.seconds),
-      thumbnail: v.thumbnail || v.image,
-      url: v.url,
-      views: v.views,
-      ago: v.ago,
-      source: "youtube" as const,
-    }));
+    const results = await searchWithYtDlp(trimmed, limit);
+    return results;
   } catch (err: any) {
     console.error("Failed to search online music:", err);
     return [];
