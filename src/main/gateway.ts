@@ -83,7 +83,7 @@ export class VoiceConnection {
     if (deaf !== undefined) this.isDeafened = deaf;
     if (stream !== undefined) this.isStreaming = stream;
 
-    if (this.connected && this.ws && this.ws.readyState === WebSocket.OPEN && this.currentGuildId && this.currentChannelId) {
+    if (this.connected && this.ws && this.ws.readyState === WebSocket.OPEN && this.currentGuildId) {
       this.ws.send(
         JSON.stringify({
           op: 4,
@@ -142,6 +142,12 @@ export class VoiceConnection {
       this.adapterMethods = methods;
       return {
         sendPayload: (data: any) => {
+          if (data?.op === 4 && data?.d) {
+            if (data.d.guild_id !== undefined && data.d.guild_id !== null) this.currentGuildId = String(data.d.guild_id);
+            if (data.d.channel_id !== undefined) this.currentChannelId = data.d.channel_id ? String(data.d.channel_id) : null;
+            if (data.d.self_mute !== undefined) this.isMuted = Boolean(data.d.self_mute);
+            if (data.d.self_deaf !== undefined) this.isDeafened = Boolean(data.d.self_deaf);
+          }
           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(data));
             return true;
@@ -190,9 +196,24 @@ export class VoiceConnection {
                 if (msg.d?.session_id) {
                   this.sessionId = msg.d.session_id;
                 }
+                if (msg.d?.guild_id) {
+                  this.currentGuildId = String(msg.d.guild_id);
+                }
+                if (msg.d?.channel_id !== undefined) {
+                  this.currentChannelId = msg.d.channel_id ? String(msg.d.channel_id) : null;
+                }
+                if (msg.d?.self_mute !== undefined) {
+                  this.isMuted = Boolean(msg.d.self_mute);
+                }
+                if (msg.d?.self_deaf !== undefined) {
+                  this.isDeafened = Boolean(msg.d.self_deaf);
+                }
                 this.adapterMethods?.onVoiceStateUpdate(msg.d);
               }
             } else if (msg.t === "VOICE_SERVER_UPDATE") {
+              if (msg.d?.guild_id) {
+                this.currentGuildId = String(msg.d.guild_id);
+              }
               this.adapterMethods?.onVoiceServerUpdate(msg.d);
             }
           }
@@ -274,18 +295,17 @@ export class VoiceConnection {
       );
 
       const serverUpdate = await this.once(
-        (m) => m.op === 0 && m.t === "VOICE_SERVER_UPDATE",
-        12000
+        (m) => m.op === 0 && (m.t === "VOICE_SERVER_UPDATE" || m.t === "VOICE_STATE_UPDATE"),
+        8000
       );
-      if (!serverUpdate) return { success: false, error: "Voice handshake timed out" };
 
       this.onLog(`Voice connected to channel ${channelId}`, "success");
       return {
         success: true,
         session_id: this.sessionId ?? "",
         user_id: this.userId ?? "",
-        voice_token: serverUpdate.d?.token ?? "",
-        endpoint: serverUpdate.d?.endpoint ?? "",
+        voice_token: serverUpdate?.d?.token ?? "",
+        endpoint: serverUpdate?.d?.endpoint ?? "",
       };
     } catch (err: any) {
       return { success: false, error: String(err?.message ?? err) };

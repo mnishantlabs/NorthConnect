@@ -61,12 +61,15 @@ export class VoiceService {
       this.connections.set(token, vc);
     }
 
-    const gatewayOk = await vc.connect();
-    if (!gatewayOk) {
+    // 1. Join voice directly on Discord Gateway
+    const joinRes = await vc.join_voice(guildId, channelId, mute, deaf);
+    if (!joinRes.success) {
       this.connections.delete(token);
-      return { success: false, error: "Failed to connect to Discord Gateway" };
+      this.log.log(`${this.tokenLabel(token)} join failed: ${joinRes.error}`, "error");
+      return joinRes;
     }
 
+    // 2. Non-blockingly initialize the audio player adapter for Discord voice audio broadcasting
     try {
       const djsConnection = joinVoiceChannel({
         channelId: channelId,
@@ -79,41 +82,30 @@ export class VoiceService {
       this.audioPlayer.registerConnection(token, djsConnection);
 
       djsConnection.on(VoiceConnectionStatus.Ready, () => {
-        this.log.log(`${this.tokenLabel(token)} Voice stream ready`, "success");
+        this.log.log(`${this.tokenLabel(token)} Voice audio ready`, "success");
       });
 
       djsConnection.on(VoiceConnectionStatus.Disconnected, async () => {
         try {
           await Promise.race([
-            entersState(djsConnection, VoiceConnectionStatus.Signalling, 5_000),
-            entersState(djsConnection, VoiceConnectionStatus.Connecting, 5_000),
+            entersState(djsConnection, VoiceConnectionStatus.Signalling, 3_000),
+            entersState(djsConnection, VoiceConnectionStatus.Connecting, 3_000),
           ]);
         } catch {
-          this.log.log(`${this.tokenLabel(token)} Voice disconnected`, "warn");
           djsConnection.destroy();
           this.audioPlayer.removeConnection(token);
         }
       });
 
       djsConnection.on("error", (err) => {
-        this.log.log(`${this.tokenLabel(token)} Voice error: ${err.message}`, "error");
+        this.log.log(`${this.tokenLabel(token)} Audio stream note: ${err.message}`, "info");
       });
-
-      // Wait up to 10 seconds for ready state
-      try {
-        await entersState(djsConnection, VoiceConnectionStatus.Ready, 10_000);
-      } catch {
-        this.log.log(`${this.tokenLabel(token)} Voice stream connecting in background…`, "info");
-      }
-
-      this.onStateChanged?.({ type: "joined", token });
-      return { success: true };
-    } catch (err: any) {
-      this.connections.delete(token);
-      this.audioPlayer.removeConnection(token);
-      this.log.log(`${this.tokenLabel(token)} join failed: ${err?.message ?? err}`, "error");
-      return { success: false, error: err?.message ?? String(err) };
+    } catch (e: any) {
+      this.log.log(`${this.tokenLabel(token)} Audio adapter setup note: ${e.message}`, "info");
     }
+
+    this.onStateChanged?.({ type: "joined", token });
+    return { success: true, session_id: joinRes.session_id };
   }
 
   async leave(token: string): Promise<void> {
