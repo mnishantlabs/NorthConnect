@@ -7,12 +7,13 @@ import {
   NoSubscriberBehavior,
   StreamType,
   VoiceConnection as DiscordVoiceConnection,
+  VoiceConnectionStatus,
 } from "@discordjs/voice";
 import prism from "prism-media";
 import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
-import { createOnlineAudioStream, type StreamingProcessHandle } from "./youtube-service";
+import { createOnlineAudioStream, resolveDirectAudioUrl, type StreamingProcessHandle } from "./youtube-service";
 
 export type AudioStateCallback = (state: AudioPlayerState) => void;
 
@@ -32,6 +33,13 @@ export interface AudioPlayerState {
 }
 
 export function getFfmpegPath(): string {
+  try {
+    const ffmpegStatic = require("ffmpeg-static");
+    if (ffmpegStatic && typeof ffmpegStatic === "string" && fs.existsSync(ffmpegStatic)) {
+      return ffmpegStatic;
+    }
+  } catch {}
+
   if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
     return process.env.FFMPEG_PATH;
   }
@@ -68,8 +76,7 @@ if (resolvedFfmpeg && fs.existsSync(resolvedFfmpeg)) {
 
 /**
  * Global Audio Player Engine powered by @discordjs/voice.
- * Handles decoding local audio via FFmpeg, Opus transcoding, and streaming
- * to connected Discord voice channels with native DAVE / AEAD encryption.
+ * Single unified player for playing audio directly into active Discord voice connections.
  */
 export class AudioPlayerService {
   private connections = new Map<string, DiscordVoiceConnection>();
@@ -101,6 +108,11 @@ export class AudioPlayerService {
         noSubscriber: NoSubscriberBehavior.Play,
         maxMissedFrames: 250,
       },
+    });
+
+    this.player.on("stateChange", (oldState, newState) => {
+      console.log(`[AudioPlayer] ${oldState.status} -> ${newState.status}`);
+      this.onLog(`Player: ${oldState.status} -> ${newState.status}`, "info");
     });
 
     this.player.on(AudioPlayerStatus.Playing, () => {
@@ -135,6 +147,7 @@ export class AudioPlayerService {
     });
 
     this.player.on("error", (error) => {
+      console.error(`[AudioPlayer Error]`, error);
       this.onLog(`Audio player error: ${error.message}`, "error");
       this.stop();
     });
@@ -149,9 +162,31 @@ export class AudioPlayerService {
     }
     this.connections.set(token, conn);
 
-    // If audio is actively playing, subscribe this new connection immediately
-    if (this.isPlaying && (this.targetToken === "all" || this.targetToken === token)) {
+    // Subscribe connection to the player
+    try {
       conn.subscribe(this.player);
+    } catch {}
+
+    conn.on(VoiceConnectionStatus.Ready, () => {
+      this.onLog(`Voice connection ready for token ${token.slice(0, 8)}…`, "info");
+      try {
+        conn.subscribe(this.player);
+      } catch {}
+    });
+  }
+
+  isPlayingNow(): boolean {
+    return this.isPlaying;
+  }
+
+  subscribeTarget(token: string) {
+    const conn = this.connections.get(token);
+    if (conn) {
+      try {
+        conn.subscribe(this.player);
+      } catch (err: any) {
+        this.onLog(`Subscribe error: ${err.message}`, "warn");
+      }
     }
   }
 
@@ -182,11 +217,11 @@ export class AudioPlayerService {
     return this.connections.size > 0;
   }
 
-  private subscribeAllTargetConnections() {
-    for (const [token, conn] of this.connections.entries()) {
-      if (this.targetToken === "all" || this.targetToken === token) {
+  private subscribeAllConnections() {
+    for (const conn of this.connections.values()) {
+      try {
         conn.subscribe(this.player);
-      }
+      } catch {}
     }
   }
 
@@ -307,24 +342,24 @@ export class AudioPlayerService {
       let resource: AudioResource;
 
       if (isOnline) {
-        const streamHandle = createOnlineAudioStream(
-          filePathOrUrl,
-          startSec,
-          (err) => this.onLog(err.message, "error")
-        );
-        this.activeOnlineStream = streamHandle;
+        let directUrl: string | null = null;
+        try {
+          directUrl = await resolveDirectAudioUrl(filePathOrUrl);
+        } catch {
+          directUrl = null;
+        }
 
-        resource = createAudioResource(streamHandle.stream, {
-          inputType: StreamType.Raw,
-          inlineVolume: true,
-        });
-      } else if (startSec > 0) {
-        const ffmpegStream = prism.FFmpeg.create({
-          args: [
-            "-ss",
-            String(startSec),
+        if (directUrl) {
+          const ffmpegArgs = [
+            ...(startSec > 0 ? ["-ss", String(startSec)] : []),
+            "-reconnect",
+            "1",
+            "-reconnect_streamed",
+            "1",
+            "-reconnect_delay_max",
+            "5",
             "-i",
-            filePathOrUrl,
+            directUrl,
             "-analyzeduration",
             "0",
             "-loglevel",
@@ -335,16 +370,50 @@ export class AudioPlayerService {
             "48000",
             "-ac",
             "2",
-          ],
+          ];
+          const ffmpegStream = new prism.FFmpeg({ args: ffmpegArgs });
+          ffmpegStream.on("error", (err: any) => {
+            this.onLog(`FFmpeg stream error: ${err.message}`, "error");
+          });
+          resource = createAudioResource(ffmpegStream, {
+            inputType: StreamType.Raw,
+            inlineVolume: true,
+          });
+        } else {
+          const streamHandle = createOnlineAudioStream(
+            filePathOrUrl,
+            startSec,
+            (err) => this.onLog(err.message, "error")
+          );
+          this.activeOnlineStream = streamHandle;
+
+          resource = createAudioResource(streamHandle.stream, {
+            inputType: StreamType.Raw,
+            inlineVolume: true,
+          });
+        }
+      } else {
+        const ffmpegArgs = [
+          ...(startSec > 0 ? ["-ss", String(startSec)] : []),
+          "-i",
+          filePathOrUrl,
+          "-analyzeduration",
+          "0",
+          "-loglevel",
+          "0",
+          "-f",
+          "s16le",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+        ];
+        const ffmpegStream = new prism.FFmpeg({ args: ffmpegArgs });
+        ffmpegStream.on("error", (err: any) => {
+          this.onLog(`FFmpeg decode error: ${err.message}`, "error");
         });
         resource = createAudioResource(ffmpegStream, {
           inputType: StreamType.Raw,
-          inlineVolume: true,
-        });
-      } else {
-        const stream = fs.createReadStream(filePathOrUrl);
-        resource = createAudioResource(stream, {
-          inputType: StreamType.Arbitrary,
           inlineVolume: true,
         });
       }
@@ -357,15 +426,13 @@ export class AudioPlayerService {
       this.isPlaying = true;
       this.isPaused = false;
 
-      // Subscribe active voice connections to this player
-      this.subscribeAllTargetConnections();
+      // Subscribe all active voice connections
+      this.subscribeAllConnections();
 
-      // Start playing
+      // Start playing audio
       this.player.play(resource);
 
-      const targetDesc =
-        this.targetToken === "all" ? "All Connected Tokens" : `Token ${this.targetToken.slice(0, 8)}…`;
-      this.onLog(`Playing: ${this.trackName} (${targetDesc})`, "info");
+      this.onLog(`Playing: ${this.trackName}`, "info");
       this.broadcastState();
 
       // Progress ticker
@@ -455,8 +522,6 @@ export class AudioPlayerService {
 
   setTargetToken(token: string | "all") {
     this.targetToken = token;
-    this.subscribeAllTargetConnections();
     this.broadcastState();
   }
 }
-

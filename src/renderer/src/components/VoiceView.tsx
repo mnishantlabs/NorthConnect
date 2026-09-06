@@ -79,8 +79,6 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
 
   const [channels, setChannels] = useState<ChannelOpt[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(false);
-  const [mute, setMute] = useState(false);
-  const [deaf, setDeaf] = useState(false);
 
   // Dynamic voice states per token: { mute, deaf, isStreaming, guildId, channelId }
   const [voiceStates, setVoiceStates] = useState<Record<string, { mute: boolean; deaf: boolean; isStreaming?: boolean }>>({});
@@ -149,12 +147,15 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
     return opts;
   }, [valid]);
 
-  // Server Map from valid tokens
+  // Server Map from valid tokens (filtered by selected token if single account mode)
   const servers = useMemo(() => {
     const map = new Map<string, string>();
-    for (const t of valid) for (const s of t.servers ?? []) map.set(s.id, s.name);
+    const sourceTokens = selectedToken && selectedToken !== 'all'
+      ? valid.filter((t) => t.token === selectedToken)
+      : valid;
+    for (const t of sourceTokens) for (const s of t.servers ?? []) map.set(s.id, s.name);
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [valid]);
+  }, [valid, selectedToken]);
 
   // Server Options for CustomSelect
   const serverOptions: SelectOption[] = useMemo(() => {
@@ -168,7 +169,7 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
 
   const effectiveToken = selectedToken && selectedToken !== 'all' && valid.some((t) => t.token === selectedToken)
     ? selectedToken
-    : valid[0]?.token ?? null;
+    : valid.find((t) => (t.servers ?? []).some((s) => s.id === selectedGuildId))?.token ?? valid[0]?.token ?? null;
 
   const loadChannels = async (gid = selectedGuildId) => {
     if (!gid || !effectiveToken) {
@@ -208,10 +209,16 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
   };
 
   const handleAccountChange = (val: string) => {
-    if (val === 'all') {
-      onChangeSelectedToken(null);
-    } else {
-      onChangeSelectedToken(val);
+    const nextToken = val === 'all' ? null : val;
+    onChangeSelectedToken(nextToken);
+
+    if (nextToken) {
+      const targetTokenObj = valid.find((t) => t.token === nextToken);
+      const tokenServers = targetTokenObj?.servers ?? [];
+      const hasCurrentGuild = tokenServers.some((s) => s.id === selectedGuildId);
+      if (!hasCurrentGuild && tokenServers.length > 0) {
+        onSelectServer(tokenServers[0].id, tokenServers[0].name);
+      }
     }
   };
 
@@ -219,15 +226,20 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
     ? [selectedToken]
     : valid.map((t) => t.token);
 
+  const eligibleTokens = pickTokens.filter((tk) => {
+    const t = valid.find((v) => v.token === tk);
+    return t?.servers?.some((s) => s.id === selectedGuildId) ?? true;
+  });
+
   const handleJoin = () => {
-    if (!selectedGuildId || !selectedChannelId || pickTokens.length === 0) return;
-    onJoin(pickTokens, {
+    if (!selectedGuildId || !selectedChannelId || eligibleTokens.length === 0) return;
+    onJoin(eligibleTokens, {
       guildId: selectedGuildId,
       guildName: selectedGuildName || selectedGuildId,
       channelId: selectedChannelId,
       channelName: selectedChannelName || selectedChannelId,
-      mute,
-      deaf,
+      mute: false,
+      deaf: false,
     });
   };
 
@@ -468,7 +480,7 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
           </div>
         </div>
 
-        {/* 4. Controls: Mute, Deafen, and Connect Action */}
+        {/* 4. Connect Action */}
         <div
           style={{
             display: 'flex',
@@ -480,54 +492,35 @@ export const VoiceView: React.FC<VoiceViewProps> = ({
             gap: 12,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* Initial Mute Toggle */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
-              <input
-                type="checkbox"
-                checked={mute}
-                onChange={(e) => setMute(e.target.checked)}
-                style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                {mute ? <MicOff size={14} style={{ color: 'var(--danger)' }} /> : <Mic size={14} />}
-                <span>Join Muted</span>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+            {selectedChannelName ? (
+              <span>
+                Target channel: <strong style={{ color: 'var(--text-primary)' }}>🔊 {selectedChannelName}</strong>
               </span>
-            </label>
-
-            {/* Initial Deafen Toggle */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
-              <input
-                type="checkbox"
-                checked={deaf}
-                onChange={(e) => setDeaf(e.target.checked)}
-                style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                {deaf ? <VolumeX size={14} style={{ color: 'var(--danger)' }} /> : <Volume2 size={14} />}
-                <span>Join Deafened</span>
-              </span>
-            </label>
+            ) : (
+              <span>Select a voice channel above to connect</span>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
               className="button-primary"
-              disabled={!selectedGuildId || !selectedChannelId || pickTokens.length === 0}
+              disabled={!selectedGuildId || !selectedChannelId || eligibleTokens.length === 0}
               onClick={handleJoin}
               style={{
-                padding: '10px 22px',
+                padding: '10px 24px',
                 fontSize: 13,
+                fontWeight: 700,
                 borderRadius: 8,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                opacity: !selectedGuildId || !selectedChannelId || pickTokens.length === 0 ? 0.5 : 1,
-                cursor: !selectedGuildId || !selectedChannelId || pickTokens.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: !selectedGuildId || !selectedChannelId || eligibleTokens.length === 0 ? 0.5 : 1,
+                cursor: !selectedGuildId || !selectedChannelId || eligibleTokens.length === 0 ? 'not-allowed' : 'pointer',
               }}
             >
               <Radio size={15} />
-              <span>Connect {pickTokens.length > 1 ? `(${pickTokens.length} Accounts)` : ''}</span>
+              <span>Connect {eligibleTokens.length > 1 ? `(${eligibleTokens.length} Accounts)` : ''}</span>
             </button>
           </div>
         </div>

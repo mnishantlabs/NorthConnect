@@ -40,13 +40,25 @@ export class VoiceConnection {
   private isMuted = false;
   private isDeafened = false;
   private isStreaming = false;
+  private lastVoiceStateUpdate: any = null;
+  private lastVoiceServerUpdate: any = null;
   private adapterMethods: DiscordGatewayAdapterLibraryMethods | null = null;
   private messageListeners = new Set<(msg: GatewayMessage) => void>();
 
   constructor(
     private token: string,
     private onLog: LogCallback = () => {}
-  ) {}
+  ) {
+    try {
+      const part = token.split(".")[0];
+      if (part) {
+        const decoded = Buffer.from(part, "base64").toString("utf8");
+        if (/^\d{17,20}$/.test(decoded)) {
+          this.userId = decoded;
+        }
+      }
+    } catch {}
+  }
 
   get isConnected() {
     return this.connected;
@@ -140,6 +152,7 @@ export class VoiceConnection {
   createAdapter(): DiscordGatewayAdapterCreator {
     return (methods: DiscordGatewayAdapterLibraryMethods) => {
       this.adapterMethods = methods;
+
       return {
         sendPayload: (data: any) => {
           if (data?.op === 4 && data?.d) {
@@ -192,9 +205,14 @@ export class VoiceConnection {
           // Handle Voice Gateway Dispatch events
           if (msg.op === 0) {
             if (msg.t === "VOICE_STATE_UPDATE") {
-              if (!this.userId || msg.d?.user_id === this.userId) {
+              const msgUserId = msg.d?.user_id ? String(msg.d.user_id) : "";
+              const myUserId = this.userId ? String(this.userId) : "";
+
+              // CRITICAL: Only dispatch OWN voice state to adapter, ignore other users in guild
+              if (msgUserId && myUserId && msgUserId === myUserId) {
+                this.lastVoiceStateUpdate = msg.d;
                 if (msg.d?.session_id) {
-                  this.sessionId = msg.d.session_id;
+                  this.sessionId = String(msg.d.session_id);
                 }
                 if (msg.d?.guild_id) {
                   this.currentGuildId = String(msg.d.guild_id);
@@ -208,13 +226,23 @@ export class VoiceConnection {
                 if (msg.d?.self_deaf !== undefined) {
                   this.isDeafened = Boolean(msg.d.self_deaf);
                 }
+                console.log(`[Gateway] Dispatching OWN VOICE_STATE_UPDATE to adapter: user=${msgUserId}, session_id=${msg.d?.session_id}, channel=${msg.d?.channel_id}`);
+                this.onLog(`Gateway: voice state received (session=${msg.d?.session_id?.slice(0, 6)}…)`, "info");
                 this.adapterMethods?.onVoiceStateUpdate(msg.d);
               }
             } else if (msg.t === "VOICE_SERVER_UPDATE") {
-              if (msg.d?.guild_id) {
-                this.currentGuildId = String(msg.d.guild_id);
+              const msgGuildId = msg.d?.guild_id ? String(msg.d.guild_id) : "";
+              const myGuildId = this.currentGuildId ? String(this.currentGuildId) : "";
+              if (!myGuildId || msgGuildId === myGuildId) {
+                const payload = {
+                  ...msg.d,
+                  endpoint: msg.d?.endpoint ? String(msg.d.endpoint).replace(/:80$/, "") : msg.d?.endpoint,
+                };
+                this.lastVoiceServerUpdate = payload;
+                console.log(`[Gateway] Dispatching VOICE_SERVER_UPDATE to adapter: endpoint=${payload.endpoint}, token=${payload.token ? "present" : "missing"}`);
+                this.onLog(`Gateway: voice server received (endpoint=${payload.endpoint})`, "info");
+                this.adapterMethods?.onVoiceServerUpdate(payload);
               }
-              this.adapterMethods?.onVoiceServerUpdate(msg.d);
             }
           }
 
@@ -268,47 +296,6 @@ export class VoiceConnection {
     } catch (err: any) {
       this.onLog(`Connection failed: ${err?.message ?? err}`, "error");
       return false;
-    }
-  }
-
-  async join_voice(
-    guildId: string,
-    channelId: string,
-    mute = false,
-    deaf = false
-  ): Promise<VoiceJoinResult> {
-    if (!this.connected) {
-      const ok = await this.connect();
-      if (!ok) return { success: false, error: "Failed to connect to gateway" };
-    }
-    try {
-      this.currentGuildId = guildId;
-      this.currentChannelId = channelId;
-      this.isMuted = mute;
-      this.isDeafened = deaf;
-
-      this.ws!.send(
-        JSON.stringify({
-          op: 4,
-          d: { guild_id: guildId, channel_id: channelId, self_mute: mute, self_deaf: deaf },
-        })
-      );
-
-      const serverUpdate = await this.once(
-        (m) => m.op === 0 && (m.t === "VOICE_SERVER_UPDATE" || m.t === "VOICE_STATE_UPDATE"),
-        8000
-      );
-
-      this.onLog(`Voice connected to channel ${channelId}`, "success");
-      return {
-        success: true,
-        session_id: this.sessionId ?? "",
-        user_id: this.userId ?? "",
-        voice_token: serverUpdate?.d?.token ?? "",
-        endpoint: serverUpdate?.d?.endpoint ?? "",
-      };
-    } catch (err: any) {
-      return { success: false, error: String(err?.message ?? err) };
     }
   }
 

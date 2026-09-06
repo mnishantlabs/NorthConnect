@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-release/
+bin/
 .vite/
 *.log
 .env

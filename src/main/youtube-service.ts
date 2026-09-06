@@ -4,6 +4,7 @@ import fs from "fs";
 import { app } from "electron";
 import ytSearch from "yt-search";
 import { Readable } from "stream";
+import YTDlpWrap from "yt-dlp-wrap";
 import { getFfmpegPath } from "./voice-audio";
 
 export interface OnlineTrackResult {
@@ -17,6 +18,42 @@ export interface OnlineTrackResult {
   views?: number;
   ago?: string;
   source: "youtube" | "spotify";
+}
+
+let isDownloadingYtDlp = false;
+
+export async function ensureYtDlpBinary(): Promise<string | null> {
+  const current = getYtDlpPath();
+  if (current && fs.existsSync(current)) {
+    return current;
+  }
+
+  if (isDownloadingYtDlp) return null;
+  isDownloadingYtDlp = true;
+
+  try {
+    let targetDir = path.join(process.cwd(), "bin");
+    try {
+      if (app?.getPath) {
+        targetDir = path.join(app.getPath("userData"), "bin");
+      }
+    } catch {}
+
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    const targetBinary = path.join(targetDir, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
+    if (!fs.existsSync(targetBinary)) {
+      await YTDlpWrap.downloadFromGithub(targetBinary);
+    }
+    isDownloadingYtDlp = false;
+    return targetBinary;
+  } catch (err) {
+    console.error("Failed to auto-download yt-dlp binary:", err);
+    isDownloadingYtDlp = false;
+    return null;
+  }
 }
 
 export function getYtDlpPath(): string {
@@ -182,6 +219,32 @@ export async function searchOnlineMusic(query: string, limit = 15): Promise<Onli
   }
 }
 
+export async function resolveDirectAudioUrl(url: string): Promise<string | null> {
+  await ensureYtDlpBinary();
+  return new Promise((resolve) => {
+    const ytdlBin = getYtDlpPath();
+    const args = ["-g", "-f", "bestaudio/best", "--no-warnings", "-q", url];
+    try {
+      const proc = spawn(ytdlBin, args, { windowsHide: true });
+      let output = "";
+      proc.stdout.on("data", (d) => {
+        output += d.toString();
+      });
+      proc.on("error", () => resolve(null));
+      proc.on("close", (code) => {
+        const directUrl = output.trim().split(/\r?\n/)[0];
+        if (code === 0 && directUrl && directUrl.startsWith("http")) {
+          resolve(directUrl);
+        } else {
+          resolve(null);
+        }
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 export interface StreamingProcessHandle {
   stream: Readable;
   processes: ChildProcess[];
@@ -225,7 +288,7 @@ export function createOnlineAudioStream(
   ];
 
   const ytdlProc = spawn(ytdlBin, ytdlArgs, {
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "ignore"],
     windowsHide: true,
   });
 
@@ -234,9 +297,17 @@ export function createOnlineAudioStream(
     windowsHide: true,
   });
 
+  // Attach safe error listeners on pipes to prevent unhandled 'write EOF' / EPIPE crashes
+  ytdlProc.stdout.on("error", () => {});
+  ffmpegProc.stdin.on("error", () => {});
+  ffmpegProc.stdout.on("error", () => {});
+
   ytdlProc.stdout.pipe(ffmpegProc.stdin);
 
+  let cleanedUp = false;
   const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
     try {
       ytdlProc.stdout.unpipe(ffmpegProc.stdin);
     } catch {}
@@ -247,6 +318,16 @@ export function createOnlineAudioStream(
       ffmpegProc.kill("SIGKILL");
     } catch {}
   };
+
+  ffmpegProc.on("close", () => {
+    cleanup();
+  });
+
+  ytdlProc.on("close", () => {
+    try {
+      ffmpegProc.stdin.end();
+    } catch {}
+  });
 
   ytdlProc.on("error", (err) => {
     onError?.(new Error("yt-dlp error: " + err.message));
